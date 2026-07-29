@@ -1,0 +1,29 @@
+{
+  "name": "claude-skillsets",
+  "version": "1.1.0",
+  "description": "Manage named sets of Claude Code skills (coding/marketing/legal/...) and toggle them on or off via symlinks to cut token overhead from unused SKILL.md files.",
+  "type": "module",
+  "bin": {
+    "skillset": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "inquirer": "^10.2.2",
+    "meow": "^13.2.0",
+    "ora": "^8.1.0",
+    "yaml": "^2.5.1"
+  },
+  "devDependencies": {
+    "@types/inquirer": "^9.0.7",
+    "@types/node": "^22.7.5",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
