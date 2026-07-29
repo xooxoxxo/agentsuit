@@ -379,8 +379,33 @@ to the npm registry so consumers never invoke `tsc` at all.
   to the active dir and tears down the library.
 - **No set composition.** Sets cannot include other sets, and there is no "activate the union of
   coding + writing" operation.
-- **Running Claude Code sessions.** Whether an in-flight session picks up an activation change
-  or requires a restart has not been characterised. Needs verification before documenting.
+
+### Running Claude Code sessions
+
+Measured on 2026-07-29 with a codeword-swap experiment: a marker skill whose description carried a
+distinctive codeword was activated, edited, and deactivated between headless sessions
+(`CLAUDE_SKILLSETS_HOME` override, project scope, synthetic environment — the probing session had
+never seen any codeword in conversation, so answers could only come from live skill context).
+
+- **New sessions read the current state of `.claude/skills`.** Activation, deactivation, and even
+  edits to a skill's description are all visible to a session started afterwards (fresh sessions
+  returned the post-edit codeword and reported the skill gone after deactivation).
+- **Resumed sessions keep the skill context from when the session was created.** A session resumed
+  with `claude --resume <session_id>` returned the original codeword after the description had
+  changed on disk, and still listed the skill after it had been deactivated. The conversation
+  prefix — including the skills loaded at session start — is fixed at creation and replayed on
+  resume.
+- **Live mid-conversation switches** (same interactive process, no resume) were not directly
+  measurable headlessly, but the resume result implies the same snapshot behavior: skill context
+  is assembled once at session start. Assume a running session will NOT see a set switch.
+
+Practical guidance: switch sets, then start a fresh session. Nothing to do beyond that — new
+sessions pick up the change instantly; existing and resumed conversations intentionally keep the
+context they started with.
+
+Methodology note: probes must ask the model to quote the skill's description verbatim (e.g. a
+codeword) rather than asking whether a skill "is available" — presence questions produced false
+negatives with smaller models during testing.
 
 ---
 
