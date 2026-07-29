@@ -1,7 +1,7 @@
 # claude-skillsets — Project Document
 
 > Working reference for the release README, website copy, and codebase review.
-> Version: 1.0.0 · Status: functional, tested end to end, not yet published
+> Version: 1.1.0 · Status: functional, tested end to end, not yet published
 
 ---
 
@@ -116,13 +116,16 @@ skillset <command> [args] [--project]
 
 One-time migration. Walks the active skills directory; for every real directory containing a
 `SKILL.md`, copies it into the library, removes the original, and replaces it with a symlink.
+Reports the result to the user in five categories:
 
-- Idempotent — entries that are already symlinks are reported as "already managed" and skipped.
-- Non-destructive on re-run.
-- Directories without a `SKILL.md` are ignored entirely (not skills).
-- If a name already exists in the library, the existing library copy wins and is not overwritten.
+- **migrated** — Real directories copied into the library and replaced with symlinks.
+- **adopted** — Pre-existing symlinks to externally-owned skills, now registered in the library (re-pointed from active dir to library entry).
+- **alreadyManaged** — Symlinks already pointing into the library; left untouched.
+- **broken** — Symlinks whose target no longer exists.
+- **conflicts** — Names already taken in the library by something else; left untouched.
 
-Run this once before anything else.
+Idempotent — entries that are already managed are skipped on re-run. Directories without a `SKILL.md`
+are ignored entirely (not skills). Run this once before anything else.
 
 ### `list`
 
@@ -130,6 +133,7 @@ Prints every skill in the library with:
 
 - on/off state (is it symlinked into the current scope's active dir?)
 - rough token cost, estimated as `SKILL.md bytes / 4`
+- `[external]` flag if the library entry is a symlink to a skill owned elsewhere (plugin dir, dotfiles repo...)
 - `[manual-only]` flag if the skill has `disable-model-invocation: true`
 - truncated description
 - a footer summarising `<active>/<total> active, ~N tokens of descriptions loaded`
@@ -158,8 +162,9 @@ Requires a TTY.
 
 The main event. Clears every symlink from the current scope's active directory, then links
 exactly the skills named by the set. Skills named in the set but missing from the library are
-reported as skipped rather than failing the whole operation. Shows an ora spinner and a
-summary of what ended up active.
+reported as skipped rather than failing the whole operation. Foreign (unmanaged) symlinks pointing
+outside the library are left untouched and reported with a nudge to run `skillset init`. Shows an
+ora spinner and a summary of what ended up active.
 
 ### `enable <skill>` / `disable <skill>`
 
@@ -191,6 +196,7 @@ src/
 ├── paths.ts             all filesystem location logic
 ├── types.ts             SkillMeta, SetsFile
 ├── frontmatter.ts       YAML frontmatter extraction
+├── fsutil.ts            filesystem utilities — symlink inspection, path resolution
 ├── library.ts           library enumeration
 ├── sets.ts              sets.json load/save
 ├── activate.ts          symlink manipulation — the core
@@ -219,12 +225,29 @@ Regex-extracts the leading `---` fenced block and parses it with `yaml`. Returns
 missing or malformed block rather than throwing — a single broken skill should never break
 `list` for every other skill.
 
-### `library.ts`
+### `fsutil.ts`
+
+Filesystem utilities for symlink-aware path manipulation, imported by `activate.ts` and `library.ts`:
+
+- `resolveSafe(p)` — `fs.realpathSync` that returns `null` instead of throwing on missing/broken paths.
+- `lstatOrNull(p)` — `fs.lstatSync` (never follows symlinks) that returns `null` instead of throwing.
+- `isInside(child, parent)` — True when `child` sits under `parent` (both should be realpath-resolved).
+- `immediateTarget(linkPath)` — Resolves only the **first hop** of a symlink (with its parent directory realpath'd). Critical for distinguishing managed links from foreign ones: active links form chains like `active/x -> library/x -> /elsewhere/x`, and only the first hop tells us ownership.
+
+### `library.ts` and `types.ts`
 
 `listLibrarySkills()` enumerates library subdirectories, requires a `SKILL.md` to consider one
 a skill, reads frontmatter, computes byte size and estimated tokens, and returns results sorted
 by name. Falls back to the directory name when frontmatter has no `name:`, and to a placeholder
 when it has no `description:`.
+
+Returns an array of `SkillMeta` objects with fields:
+
+- `name`, `description`, `path` — the skill identity and library location.
+- `realPath` — fully resolved directory the skill actually lives in, or `null` if the link is broken.
+- `external` — true when the library entry is a symlink to a skill owned elsewhere.
+- `broken` — true when the library entry is a symlink whose target no longer exists.
+- `bytes`, `estTokens`, `disableModelInvocation` — size and configuration.
 
 `CHARS_PER_TOKEN = 4` lives here — the one tunable constant.
 
@@ -242,12 +265,8 @@ Everything that mutates the filesystem in a destructive direction lives in this 
 - `disableSkill(name, scope)` — silent no-op when absent; **throws rather than deleting when
   the entry is a real directory**. The tool never removes a real skill folder from the active
   dir except through `init`, which copies to the library first.
-- `activateOnly(names, scope)` — the set switcher. Its clearing loop filters on
-  `entry.isSymbolicLink()`, so any real directory sitting in the active dir (an unmigrated
-  skill) survives a set switch untouched. Returns `{ linked, skipped }`.
-- `initMigrate(scope, libraryDir)` — copy to library, remove original, symlink back. Skips
-  existing symlinks and directories without a `SKILL.md`. Will not overwrite an existing
-  library entry.
+- `activateOnly(names, scope)` — the set switcher. Its clearing loop filters on both `isSymbolicLink()` and first-hop ownership via `isManagedLink()` and `immediateTarget()` (which uses `readlink`, not `realpath`, to check if the link points into the library). Symlinks pointing outside the library are deliberately left in place and reported in the `foreign` field so the caller can suggest `skillset init`. Any real directory sitting in the active dir (an unmigrated skill) also survives untouched. Returns `{ linked, skipped, foreign }`.
+- `initMigrate(scope, libraryDir)` — Three behaviors: (1) Real skill directories are copied into the library, the original is removed, and replaced with a symlink. (2) Pre-existing symlinks pointing *outside* the library are adopted — the library gets a symlink to the same external target, and the active link is re-pointed at the library entry, so the external skill keeps updating at its source. (3) Symlinks already pointing into the library are left alone. Skips directories without a `SKILL.md`. Will not overwrite an existing library entry.
 
 **Review checklist for this file:** every `unlinkSync` and `rmSync` call site should be
 reachable only after an `isSymbolicLink()` check, or (in `initMigrate`) only after a
