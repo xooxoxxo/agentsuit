@@ -122,3 +122,26 @@ their tests in the same PR.
 
 Set composition, git-URL import, cross-agent portability, embeddings/network-based
 suggestion, automatic (unconfirmed) switching in any form.
+
+## 9. Amendment 2026-07-29 — best-of-breed sweep
+
+Competitive sweep (Vercel `npx skills`, skill-toggle, skill-manager, skills-manager,
+bridle, skillkit, openskills, mcpm.sh, MetaMCP, Docker MCP Gateway) produced adoptions,
+approved by user:
+
+**New issues** — npx-parity trio in M1 (release-gating, XO-145 now blocked by them):
+- XO-156 non-interactive `--yes` mode (M1)
+- XO-157 shell completion bash/zsh (M1)
+- XO-158 first-run onboarding / zero-state guidance (M1)
+- XO-159 set export/import team-sharing bundles (M3)
+- XO-160 skill scaffold + frontmatter validation (M3)
+
+**Amendments:** XO-142 + cold-start budget & deps audit; XO-145 + GitHub Actions release
+pipeline & Homebrew tap (the local-install channel); XO-147 + `find <query>` keyword
+search; XO-148 + context-budget warning; XO-141 harness must run all commands non-TTY.
+
+**Explicit non-adoptions:** parking directory (library already non-destructive — would
+regress); lock file/version pinning (no registry yet; revisit with git-URL import);
+telemetry/leaderboard registry (FUTURE; XO-153 stays static); format translation
+(FUTURE, cross-agent); "named sets" and "enable/disable" recommendations from the sweep
+were already shipped v1.1.0 core.
