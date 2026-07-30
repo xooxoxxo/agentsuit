@@ -48,11 +48,12 @@ export async function loadModules(tempHome: string) {
   const activate = await import("../src/activate.js");
   const fsutil = await import("../src/fsutil.js");
   const library = await import("../src/library.js");
+  const suits = await import("../src/suits.js");
   const sets = await import("../src/sets.js");
   const paths = await import("../src/paths.js");
   const migrate = await import("../src/commands/migrate.js");
 
-  return { activate, fsutil, library, sets, paths, migrate };
+  return { activate, fsutil, library, suits, sets, paths, migrate };
 }
 
 /**
