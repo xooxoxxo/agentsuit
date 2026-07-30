@@ -116,9 +116,9 @@ describe("completion.ts", () => {
       const script = outputs.join("\n");
 
       // Verify script contains bash completion function
-      expect(script).toContain("_skillset_completion");
+      expect(script).toContain("_suit_completion");
       expect(script).toContain("complete -o bashdefault");
-      expect(script).toContain("_skillset_completion skillset");
+      expect(script).toContain("_suit_completion suit");
 
       // Verify commands are mentioned
       expect(script).toContain("init");
@@ -161,7 +161,7 @@ describe("completion.ts", () => {
       const script = outputs.join("\n");
 
       // Verify script contains zsh completion function
-      expect(script).toContain("_skillset_completion");
+      expect(script).toContain("_suit_completion");
       expect(script).toContain("_arguments");
       expect(script).toContain("_describe");
 

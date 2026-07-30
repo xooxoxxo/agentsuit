@@ -1,10 +1,10 @@
 {
-  "name": "claude-skillsets",
+  "name": "agentsuit",
   "version": "1.1.0",
-  "description": "Manage named sets of Claude Code skills (coding/marketing/legal/...) and toggle them on or off via symlinks to cut token overhead from unused SKILL.md files.",
+  "description": "Agentic suits for Claude Code — dress your agent for the occasion: named, atomically-switchable sets of skills (MCP, plugins, hooks coming)",
   "type": "module",
   "bin": {
-    "skillset": "./dist/cli.js"
+    "suit": "./dist/cli.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -38,11 +38,14 @@
     "url": "https://github.com/oytuneyucel/claude-skillsets/issues"
   },
   "keywords": [
+    "agentsuit",
+    "suit",
     "claude-code",
     "skills",
-    "cli",
+    "agent",
     "context",
-    "tokens"
+    "mcp",
+    "plugins"
   ],
   "license": "MIT",
   "files": [

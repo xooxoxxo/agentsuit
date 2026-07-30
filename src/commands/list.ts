@@ -8,7 +8,7 @@ export function runList(scope: Scope): void {
   const active = getActiveSkillNames(scope);
 
   if (skills.length === 0) {
-    console.log(chalk.yellow("No skills in the library yet. Run `skillset init` first."));
+    console.log(chalk.yellow("No skills in the library yet. Run `suit init` first."));
     return;
   }
 

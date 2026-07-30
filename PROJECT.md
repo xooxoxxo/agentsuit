@@ -1,4 +1,4 @@
-# claude-skillsets — Project Document
+# agentsuit — Project Document
 
 > Working reference for the release README, website copy, and codebase review.
 > Version: 1.1.0 · Status: functional, tested end to end, not yet published
@@ -32,7 +32,7 @@ directly in `.claude/skills/` — that has been an open feature request
 (anthropics/claude-code#43928). And there is certainly no concept of a *named group* of skills
 you switch between as your work changes.
 
-**claude-skillsets fills that gap.** You define sets — `coding`, `marketing`, `legal`,
+**agentsuit fills that gap.** You define sets — `coding`, `marketing`, `legal`,
 `writing` — and switch between them with one command. Nothing is deleted; switching is
 instant and reversible.
 
@@ -55,10 +55,10 @@ that directory are real folders or symlinks. So:
 ```
 ~/.claude/
 ├── skills/                          ← Claude Code reads THIS
-│   ├── docx -> ../skillsets/library/docx
-│   ├── pptx -> ../skillsets/library/pptx
-│   └── xlsx -> ../skillsets/library/xlsx
-└── skillsets/                       ← managed by this CLI
+│   ├── docx -> ../agentsuit/library/docx
+│   ├── pptx -> ../agentsuit/library/pptx
+│   └── xlsx -> ../agentsuit/library/xlsx
+└── agentsuit/                       ← managed by this CLI
     ├── library/                     ← real skill folders live here, always
     │   ├── brand-voice-enforcement/
     │   │   └── SKILL.md
@@ -93,14 +93,14 @@ Every command that touches active state takes an optional `--project` flag.
 | user (default) | `~/.claude/skills` | — |
 | project | `<cwd>/.claude/skills` | `--project` |
 
-The library and `sets.json` are **shared** — they always live under `~/.claude/skillsets/`.
+The library and `sets.json` are **shared** — they always live under `~/.claude/agentsuit/`.
 Only the active directory differs. This means you define a set once and can activate it
 globally, or per repository, without duplicating anything.
 
 Verified during testing: activating `marketing --project` inside `/tmp/proj` left the global
 `~/.claude/skills` untouched. The two scopes are fully independent.
 
-An escape hatch for testing: `CLAUDE_SKILLSETS_HOME` overrides the `~/.claude` root entirely,
+An escape hatch for testing: `AGENTSUIT_HOME` overrides the `~/.claude` root entirely,
 so the whole tool can be pointed at a throwaway directory. The entire test suite for this
 project ran against `/tmp/fake-claude` and never touched a real installation.
 
@@ -109,7 +109,7 @@ project ran against `/tmp/fake-claude` and never touched a real installation.
 ## 4. Command reference
 
 ```
-skillset <command> [args] [--project]
+suit <command> [args] [--project]
 ```
 
 ### `init`
@@ -163,7 +163,7 @@ Requires a TTY.
 The main event. Clears every symlink from the current scope's active directory, then links
 exactly the skills named by the set. Skills named in the set but missing from the library are
 reported as skipped rather than failing the whole operation. Foreign (unmanaged) symlinks pointing
-outside the library are left untouched and reported with a nudge to run `skillset init`. Shows an
+outside the library are left untouched and reported with a nudge to run `suit init`. Shows an
 ora spinner and a summary of what ended up active.
 
 ### `enable <skill>` / `disable <skill>`
@@ -265,7 +265,7 @@ Everything that mutates the filesystem in a destructive direction lives in this 
 - `disableSkill(name, scope)` — silent no-op when absent; **throws rather than deleting when
   the entry is a real directory**. The tool never removes a real skill folder from the active
   dir except through `init`, which copies to the library first.
-- `activateOnly(names, scope)` — the set switcher. Its clearing loop filters on both `isSymbolicLink()` and first-hop ownership via `isManagedLink()` and `immediateTarget()` (which uses `readlink`, not `realpath`, to check if the link points into the library). Symlinks pointing outside the library are deliberately left in place and reported in the `foreign` field so the caller can suggest `skillset init`. Any real directory sitting in the active dir (an unmigrated skill) also survives untouched. Returns `{ linked, skipped, foreign }`.
+- `activateOnly(names, scope)` — the set switcher. Its clearing loop filters on both `isSymbolicLink()` and first-hop ownership via `isManagedLink()` and `immediateTarget()` (which uses `readlink`, not `realpath`, to check if the link points into the library). Symlinks pointing outside the library are deliberately left in place and reported in the `foreign` field so the caller can suggest `suit init`. Any real directory sitting in the active dir (an unmigrated skill) also survives untouched. Returns `{ linked, skipped, foreign }`.
 - `initMigrate(scope, libraryDir)` — Three behaviors: (1) Real skill directories are copied into the library, the original is removed, and replaced with a symlink. (2) Pre-existing symlinks pointing *outside* the library are adopted — the library gets a symlink to the same external target, and the active link is re-pointed at the library entry, so the external skill keeps updating at its source. (3) Symlinks already pointing into the library are left alone. Skips directories without a `SKILL.md`. Will not overwrite an existing library entry.
 
 **Review checklist for this file:** every `unlinkSync` and `rmSync` call site should be
@@ -415,14 +415,14 @@ negatives with smaller models during testing.
 
 1. Real test suite (vitest) around `activate.ts`, exercised against a temp `CLAUDE_SKILLSETS_HOME`.
 2. Windows symlink handling — junction fallback or a documented, graceful failure.
-3. Publish to npm with a prebuilt `dist/`; verify `npx skillset` works cold.
-4. `skillset status` — a compact one-line "active set + count + est. tokens" for shell prompts.
+3. Publish to npm with a prebuilt `dist/`; verify `npx agentsuit` works cold.
+4. `suit status` — a compact one-line "active set + count + est. tokens" for shell prompts.
 
 **Plausible next**
 
-- `skillset use <set> --add` to layer a set on top of what is already active instead of replacing.
+- `suit use <set> --add` to layer a set on top of what is already active instead of replacing.
 - Set composition / inheritance.
-- Auto-switching by directory, via a `.skillsetrc` file the CLI reads from the cwd.
+- Auto-switching by directory, via a `.suitrc` file the CLI reads from the cwd.
 - A `doctor` command: find orphaned symlinks, skills missing frontmatter, duplicate names.
 - Import directly from a git URL.
 

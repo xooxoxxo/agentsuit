@@ -8,7 +8,7 @@ export function runSets(scope: Scope): void {
   const names = Object.keys(sets);
 
   if (names.length === 0) {
-    console.log(chalk.yellow("No sets defined yet. Run `skillset new <name>` to create one."));
+    console.log(chalk.yellow("No sets defined yet. Run `suit new <name>` to create one."));
     return;
   }
 

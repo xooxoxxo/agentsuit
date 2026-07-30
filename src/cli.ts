@@ -14,7 +14,7 @@ import type { Scope } from "./activate.js";
 const cli = meow(
   `
   ${chalk.bold("Usage")}
-    $ skillset <command> [args] [--project]
+    $ suit <command> [args] [--project]
 
   ${chalk.bold("Commands")}
     init                        Migrate real skill dirs in the active folder into a managed library
@@ -34,11 +34,11 @@ const cli = meow(
     --as <name>   Used with "import" to rename the skill in the library
 
   ${chalk.bold("Examples")}
-    $ skillset init
-    $ skillset new coding
-    $ skillset use coding
-    $ skillset use marketing --project
-    $ skillset disable pdf
+    $ suit init
+    $ suit new coding
+    $ suit use coding
+    $ suit use marketing --project
+    $ suit disable pdf
   `,
   {
     importMeta: import.meta,
