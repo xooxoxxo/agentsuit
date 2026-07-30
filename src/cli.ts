@@ -5,6 +5,7 @@ import { runList } from "./commands/list.js";
 import { runSets } from "./commands/sets.js";
 import { runNew } from "./commands/new.js";
 import { runUse } from "./commands/use.js";
+import { runUp, runOff } from "./commands/up.js";
 import { runEnable, runDisable } from "./commands/toggle.js";
 import { runInit } from "./commands/init.js";
 import { runAdd, runRemove, runImport } from "./commands/add-remove.js";
@@ -23,7 +24,9 @@ const cli = meow(
     list                        Show every skill in the library and whether it's active
     sets                        Show defined sets and which one (if any) is active
     new <set>                   Interactively pick skills for a new (or existing) set
-    use <set>                   Activate exactly the skills in <set>, deactivating everything else
+    up <suit>                   Atomically activate all entries in a suit manifest
+    use <set>                   Alias for 'up' (backward compat); activate a set
+    off                         Deactivate all managed entries
     enable <skill>              Activate a single skill without changing set membership
     disable <skill>             Deactivate a single skill without changing set membership
     add <set> <skill>           Add a skill to a set's definition
@@ -79,9 +82,17 @@ async function main(): Promise<void> {
       requireArg(args[0], "set name");
       await runNew(args[0]);
       break;
+    case "up":
+      requireArg(args[0], "suit name");
+      await runUp(args[0], scope);
+      break;
     case "use":
-      requireArg(args[0], "set name");
-      await runUse(args[0], scope);
+      // Backward compat: 'use' is an alias for 'up'
+      requireArg(args[0], "set/suit name");
+      await runUp(args[0], scope);
+      break;
+    case "off":
+      await runOff(scope);
       break;
     case "enable":
       requireArg(args[0], "skill name");
