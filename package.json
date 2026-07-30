@@ -9,7 +9,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/cli.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "chalk": "^5.3.0",
@@ -27,5 +28,24 @@
   },
   "engines": {
     "node": ">=20"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/oytuneyucel/claude-skillsets"
+  },
+  "homepage": "https://github.com/oytuneyucel/claude-skillsets#readme",
+  "bugs": {
+    "url": "https://github.com/oytuneyucel/claude-skillsets/issues"
+  },
+  "keywords": [
+    "claude-code",
+    "skills",
+    "cli",
+    "context",
+    "tokens"
+  ],
+  "license": "MIT",
+  "files": [
+    "dist"
+  ]
 }
