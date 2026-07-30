@@ -31,6 +31,11 @@ the same directory with and without the flag under test, changing nothing else.
 | 5 | A per-session skills flag exists | `claude --help` | no `--skills` flag | **REFUTED** |
 | 6 | Per-session injection flags exist for other surfaces | `claude --help` | `--agents <json>`, `--mcp-config`, `--strict-mcp-config`, `--plugin-dir`, `--settings` all present | **VERIFIED (present)** |
 | 7 | `--bare` skips discovery of everything | `claude --help` | present; states it requires `ANTHROPIC_API_KEY` or `apiKeyHelper` — OAuth unsupported in that mode | **VERIFIED (documented)** |
+| 8 | Skills can be delivered per session via `--plugin-dir` | ephemeral plugin dir (`.claude-plugin/plugin.json` + `skills/`) attached to one session | returned `CODEWORD-AMBER-5521` | **VERIFIED** |
+| 9 | Plugin-delivered skills merge rather than replace | run from a project holding its own marker, with the plugin attached | returned **both** `CODEWORD-TEAL-7788` and `CODEWORD-AMBER-5521` | **VERIFIED — additive** |
+| 10 | A plugin's `skills/` entries may be symlinks into the library | plugin whose only entry is a symlink to a library skill | returned `CODEWORD-ROSE-8842` | **VERIFIED** |
+| 11 | Plugin-delivered skills survive `--resume` without the flag | started with `--plugin-dir`, resumed with no flags | returned `CODEWORD-AMBER-5521` | **VERIFIED — sticky** |
+| 12 | MCP isolation survives `--resume` without the flag | started with `--strict-mcp-config` (0 tools), resumed with no flags | full ambient tool set restored | **REFUTED — not sticky** |
 
 Claim 1 is the load-bearing one and the measurement is unambiguous: same working
 directory, same account, same model — only the flag differs, and the entire MCP surface
@@ -57,21 +62,50 @@ not the default install.
 - **Plugins** — `--plugin-dir <path>` (repeatable)
 - **Settings and hooks** — `--settings <file>`
 
-**Not isolatable per session:**
+- **Skills** — not by a skills flag, which does not exist, but by materialising the suit as
+  an **ephemeral plugin**: a temp directory holding `.claude-plugin/plugin.json` and a
+  `skills/` directory whose entries are symlinks into the library, passed as
+  `--plugin-dir`. Measured working, symlinks and all, with OAuth intact. This is the
+  mechanism that makes per-session skills possible at all.
 
-- **Skills.** No flag exists. The only levers are which directory they sit in — global
-  `~/.claude/skills` or the project's `.claude/skills` — or relocating the whole config
-  root, which costs OAuth. Skills therefore stay on the symlink model: global or
-  per-project, switched with `suit up`.
+**The one hard limit: additive, not exclusive.** Plugin-delivered skills merge with
+whatever the global and project directories already provide (claim 9). A session can be
+*given* a suit; it cannot be *stripped* down to only that suit without `--bare`, which
+requires an API key. The practical consequence is that the globally-active set is the
+baseline every session inherits, so `suit up` should keep it lean and `suit run` layers
+the session's extras on top.
 
-So `suit run <name> -- claude` is real, with an honest boundary: it isolates the MCP,
-agent, plugin and settings half of a suit into a single session, while the skills half
-follows the directory it is launched in. Documentation must state that plainly — a user
-who expects per-session skills would otherwise be surprised.
+## Resume semantics — the asymmetry that shapes `.agentsuit`
+
+The two halves of a suit behave differently when a conversation is resumed:
+
+- **Skills are sticky.** A session started with a plugin-delivered skill still had it
+  after `--resume` with no flags at all (claim 11). This matches XO-140: the conversation
+  prefix, including the skill listing assembled at session start, is replayed verbatim. A
+  conversation keeps the skills it was born with, for free.
+- **MCP is not sticky.** A session started with `--strict-mcp-config` and zero servers came
+  back from `--resume` with the entire ambient tool set (claim 12). MCP servers are live
+  connections re-established from flags and config at process start, not prompt text.
+
+So resuming a conversation without re-supplying its flags silently re-attaches every MCP
+server the user has configured — the isolation quietly evaporates while the skills half
+still looks correct. Any per-conversation binding (`.agentsuit`) therefore has to
+re-apply the MCP flags on **every** launch, resume included; it does not need to do
+anything to keep skills consistent.
+
+The limit worth stating plainly: this only holds for sessions launched through the
+wrapper. A user who runs bare `claude --resume` gets the ambient MCP set back and there is
+no hook that can prevent it.
 
 ## Reproduction
 
 ```bash
+# Claim 8/10 — per-session skills via an ephemeral plugin of symlinks
+mkdir -p /tmp/suit/.claude-plugin /tmp/suit/skills
+echo '{"name":"suit-ephemeral","description":"one session"}' > /tmp/suit/.claude-plugin/plugin.json
+ln -s ~/.claude/agentsuit/library/<skill> /tmp/suit/skills/<skill>
+claude -p "…" --plugin-dir /tmp/suit          # skill is present, OAuth intact
+
 # Claim 1 — the MCP measurement
 echo '{"mcpServers":{}}' > /tmp/empty-mcp.json
 cd <a directory that has MCP servers configured>
