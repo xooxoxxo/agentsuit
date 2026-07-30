@@ -23,6 +23,9 @@ export function allManagedPaths(scope: "user" | "project"): string[] {
 
   if (scope === "user") {
     paths.push(CLAUDE_HOME, AGENTSUIT_DIR, LIBRARY_DIR, SUITS_DIR, SETS_FILE);
+    // Ledger and backups for managed JSON config surfaces
+    paths.push(path.join(AGENTSUIT_DIR, "ledger.json"));
+    paths.push(path.join(AGENTSUIT_DIR, "backups"));
   }
 
   for (const type of Object.values(ARTIFACT_TYPES)) {
