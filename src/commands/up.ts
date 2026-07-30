@@ -13,7 +13,13 @@ import { ARTIFACT_TYPES, libraryPathForType } from "../artifact-types.js";
 import { lstatOrNull, immediateTarget, isInside } from "../fsutil.js";
 import { ManagedJson } from "../managed-json.js";
 import { validateMcpServer, mcpConfigPath, mcpConfigPathForProject } from "../mcp.js";
-import { parsePluginRef, pluginConfigPath, enabledPluginsPath } from "../plugin.js";
+import {
+  parsePluginEntry,
+  ensurePluginInstalled,
+  installSucceeded,
+  pluginConfigPath,
+  enabledPluginsPath,
+} from "../plugin.js";
 import { ledgerPath, backupsDir } from "../paths.js";
 
 /** Single operation in the journal for rollback. */
@@ -111,6 +117,9 @@ async function activateWithRollback(
       const type = ARTIFACT_TYPES[typeId];
       const entryNames = suit.components?.[typeId] ?? [];
       const libraryDir = libraryPathForType(type);
+      // A fresh home only has the skills library; realpath on a missing
+      // directory throws and takes the whole activation down with it.
+      fs.mkdirSync(libraryDir, { recursive: true });
       const libReal = fs.realpathSync(libraryDir);
       const activeDir = type.activeDirForScope(scope);
 
@@ -591,16 +600,34 @@ async function activatePlugins(
     return;
   }
 
-  // Validate all plugin references first
-  const validatedPlugins = pluginRefs.map((ref, idx) => {
+  // Validate every reference before touching anything
+  const specs = pluginRefs.map((entry) => {
     try {
-      return parsePluginRef(ref);
+      return parsePluginEntry(entry);
     } catch (err) {
       throw new Error(
         `Failed to activate plugins for suit '${suitName}': ${(err as Error).message}`
       );
     }
   });
+
+  // Install anything missing before the toggle. Each outcome names what it
+  // left behind, so a failure half-way through reports the exact state and
+  // how to undo it instead of a bare stack trace.
+  for (const spec of specs) {
+    const outcome = ensurePluginInstalled(spec);
+    if (!installSucceeded(outcome)) {
+      const undo = outcome.undo ? `\nTo undo: ${outcome.undo}` : "";
+      throw new Error(
+        `Failed to activate plugins for suit '${suitName}': ${outcome.message}${undo}`
+      );
+    }
+    if (outcome.state !== "already-installed") {
+      console.log(chalk.dim(outcome.message));
+    }
+  }
+
+  const validatedPlugins = specs.map((spec) => spec.ref);
 
   const configPath = pluginConfigPath(scope);
   const ledger = ledgerPath(scope);
@@ -719,6 +746,9 @@ export async function runOff(scope: Scope): Promise<void> {
     // Deactivate all artifact types
     for (const type of Object.values(ARTIFACT_TYPES)) {
       const libraryDir = libraryPathForType(type);
+      // A fresh home only has the skills library; realpath on a missing
+      // directory throws and takes the whole activation down with it.
+      fs.mkdirSync(libraryDir, { recursive: true });
       const libReal = fs.realpathSync(libraryDir);
       const activeDir = type.activeDirForScope(scope);
 

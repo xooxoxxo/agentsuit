@@ -3,11 +3,14 @@
 This document enumerates every partial state that can occur during plugin activation and the recovery procedures for each. The plugin component system has two halves:
 
 1. **Toggle** — ledger-managed updates to `enabledPlugins` entries in settings.json
-2. **Install orchestration** — (future) running `claude plugin install` and marketplace setup
+2. **Install orchestration** — running `claude plugin install`, adding a marketplace first when one is needed
 
 ## Current Implementation
 
-The strongsuit MVP implements the **toggle half only**. Plugin installation is managed by the user or external tooling; strongsuit manages only the `enabledPlugins` toggle point.
+Both halves are implemented. Installation runs **before** any ledger write, so a
+plugin that cannot be installed never reaches the toggle and no half-written
+settings state exists — the only recovery ever needed concerns the `claude`
+CLI's own state, never strongsuit's.
 
 ## Partial States — Toggle Half
 
@@ -103,47 +106,34 @@ The strongsuit MVP implements the **toggle half only**. Plugin installation is m
 
 ---
 
-## Installation Orchestration (Future: XO-182+)
+## Installation Orchestration
 
-The full plugin component system will also implement install orchestration: when a referenced plugin is not installed locally, drive the `claude plugin` CLI to install it. This introduces additional partial states:
+`ensurePluginInstalled` runs before any settings write, and returns rather than
+throws: a half-finished install is a normal outcome here, not an exceptional
+one, and the caller has to report it precisely. Every outcome names what was
+left behind and, where anything was, the command that undoes it.
 
-### S6: Marketplace unknown (future)
+A suit entry may be a bare reference or carry its marketplace source:
 
-**Triggers:** Plugin references an unfamiliar marketplace (e.g., `plugin@internal-registry`).
+```yaml
+plugins:
+  - superpowers@claude-plugins-official          # marketplace already configured
+  - ref: caveman@caveman                         # marketplace added if missing
+    marketplace: JuliusBrussee/caveman
+```
 
-**Steps:**
-1. Run `claude plugin marketplace add <repo-url>` to register the marketplace
-2. Then run `claude plugin install plugin@internal-registry`
+| Outcome | Trigger | Left behind | Recovery |
+|---|---|---|---|
+| `already-installed` | `claude plugin list` names the ref | nothing | — |
+| `installed` | marketplace known, install succeeded | plugin installed | — |
+| `marketplace-added-and-installed` | marketplace added, then install succeeded | marketplace + plugin | — |
+| `marketplace-unknown` | marketplace missing and the suit gives no source | **nothing** — only `list` commands ran | add the marketplace by hand, or give the entry a `marketplace:` source |
+| `marketplace-add-failed` | `marketplace add` exited non-zero | **nothing** | fix the source or network, retry |
+| `install-failed` | install exited non-zero, marketplace was already known | **nothing** | fix the cause, retry |
+| `install-failed-after-marketplace-add` | marketplace was added, then install failed | **the marketplace** | `claude plugin marketplace remove <name>` (printed in the error) |
 
-**Partial failure:** Marketplace added, but install fails.
-
-**State:** Marketplace registered; plugin not installed.
-
-**Recovery:** `claude plugin marketplace remove <repo-url>`, then retry the full activation.
-
----
-
-### S7: Install failure (future)
-
-**Triggers:** Plugin install command exits with error.
-
-**Partial state:** Nothing ledgered yet (all CLI operations precede ledger writes).
-
-**Error reported:** Exact command that failed + exit code + stderr.
-
-**Recovery:** Fix the environment issue (network, permissions, etc.), then retry.
-
----
-
-### S8: Plugin already installed (future)
-
-**Triggers:** Plugin already exists locally; install is a no-op.
-
-**Behavior:** Skip install step, proceed directly to S1 (toggle via ledger).
-
-**State:** Plugin is active without any install overhead.
-
----
+In every failing case activation aborts before the ledger is touched, so
+`enabledPlugins` is exactly as it was.
 
 ## Rollback Behavior
 
@@ -151,29 +141,19 @@ Every journal entry is logged before any state change. On error at any point, al
 
 - Ledger writes are undone (entries removed)
 - Settings file is reverted to its pre-activation state
-- Any CLI operations (marketplace add, install) are **not** automatically undone (the `claude` CLI has its own state; strongsuit defers to user recovery instructions)
+- CLI operations (marketplace add, install) are **not** automatically undone. The
+  `claude` CLI owns that state; strongsuit reports it and prints the undo command
+  rather than running it.
 
 ## Test Coverage
 
-Every partial state S1–S5 is covered by automated tests:
+`test/plugin.test.ts` covers p1–p6: reference parsing, config paths, ledgered
+toggle, foreign-entry preservation, round-trip, validation abort, and every
+orchestration outcome above via an injected command runner
+(`setPluginCommandRunner`) — no test shells out to a real `claude` binary.
 
-- `test/plugin.test.ts`: p1–p5 test categories
-- `test/up.test.ts`: extended activation/deactivation round-trip scenarios
-
-Mutation testing verifies that each guard and journal entry is essential:
-- Foreign-entry preservation guard
-- Ledger ownership check before removal
-- Validation-phase-failure rollback
-
----
-
-## Checklist for XO-182+ (Install Orchestration)
-
-When implementing install orchestration:
-
-- [ ] Add S6, S7, S8 to this document
-- [ ] Implement CLI stub injection (testable without real `claude` CLI)
-- [ ] Test all failure paths in isolation
-- [ ] Test marketplace-add-succeeds + install-fails partial state
-- [ ] Add recovery instructions to error messages
-- [ ] Mutation-test: break marketplace-add-check, install-check, pre-ledger guard
+Seven mutations were applied and all seven were killed by a named test:
+deactivation bypassing the ledger; the toggle proceeding after a failed install;
+the undo command dropped from the partial state; an unknown marketplace being
+installed into anyway; reference validation disabled; the already-installed
+check inverted; and the missing-library-directory fix reverted.
