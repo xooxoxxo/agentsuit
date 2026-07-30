@@ -18,3 +18,28 @@ export const AGENTSUIT_DIR = path.join(CLAUDE_HOME, "agentsuit");
 export const LIBRARY_DIR = path.join(AGENTSUIT_DIR, "library");
 export const SUITS_DIR = path.join(AGENTSUIT_DIR, "suits");
 export const SETS_FILE = path.join(AGENTSUIT_DIR, "sets.json");
+
+/**
+ * Returns all managed paths under the CLAUDE_HOME root.
+ * Used by G3 path-containment guard to verify nothing escapes the temp home.
+ */
+export function allManagedPaths(scope: "user" | "project"): string[] {
+  const paths = [
+    CLAUDE_HOME,
+    AGENTSUIT_DIR,
+    LIBRARY_DIR,
+    SUITS_DIR,
+    SETS_FILE,
+    activeSkillsDir(scope),
+    // CLAUDE.md target for the scope
+    scope === "project"
+      ? path.join(process.cwd(), ".claude", "CLAUDE.md")
+      : path.join(CLAUDE_HOME, "CLAUDE.md"),
+  ];
+
+  // TODO: When artifact types (commands, agents, rules) are added,
+  // extend this with their active dirs and library sections.
+  // For now, this covers skills only.
+
+  return paths;
+}
