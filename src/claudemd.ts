@@ -14,7 +14,7 @@ const END_MARKER = "<!-- agentsuit:end -->";
 /**
  * Gets the path to CLAUDE.md for a given scope.
  */
-function claudeMdPath(scope: "user" | "project"): string {
+export function claudeMdPath(scope: "user" | "project"): string {
   return scope === "project"
     ? path.join(process.cwd(), ".claude", "CLAUDE.md")
     : path.join(CLAUDE_HOME, "CLAUDE.md");

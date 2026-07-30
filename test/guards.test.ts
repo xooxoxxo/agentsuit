@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, it, expect } from "vitest";
-import { allManagedPaths } from "../src/paths";
+import { allManagedPaths } from "../src/managed-paths";
+import { ARTIFACT_TYPES, libraryPathForType } from "../src/artifact-types";
 
 /**
  * G1: Homedir guard — only src/paths.ts may call os.homedir().
@@ -37,6 +38,20 @@ describe("G1: homedir isolation guard", () => {
     walk(srcDir);
     expect(violations, violations.join("\n")).toHaveLength(0);
   });
+
+  it("every registered artifact type is enumerated by allManagedPaths", () => {
+    const enumerated = new Set(allManagedPaths("user").map((p) => path.resolve(p)));
+    const missing: string[] = [];
+
+    for (const [id, type] of Object.entries(ARTIFACT_TYPES)) {
+      const active = path.resolve(type.activeDirForScope("user"));
+      const library = path.resolve(libraryPathForType(type));
+      if (!enumerated.has(active)) missing.push(`${id}: active dir ${active}`);
+      if (!enumerated.has(library)) missing.push(`${id}: library ${library}`);
+    }
+
+    expect(missing, missing.join("\n")).toHaveLength(0);
+  });
 });
 
 /**
@@ -66,5 +81,19 @@ describe("G3: path-containment guard", () => {
     }
 
     expect(violations, violations.join("\n")).toHaveLength(0);
+  });
+
+  it("every registered artifact type is enumerated by allManagedPaths", () => {
+    const enumerated = new Set(allManagedPaths("user").map((p) => path.resolve(p)));
+    const missing: string[] = [];
+
+    for (const [id, type] of Object.entries(ARTIFACT_TYPES)) {
+      const active = path.resolve(type.activeDirForScope("user"));
+      const library = path.resolve(libraryPathForType(type));
+      if (!enumerated.has(active)) missing.push(`${id}: active dir ${active}`);
+      if (!enumerated.has(library)) missing.push(`${id}: library ${library}`);
+    }
+
+    expect(missing, missing.join("\n")).toHaveLength(0);
   });
 });
