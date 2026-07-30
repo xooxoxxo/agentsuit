@@ -3,13 +3,17 @@ import path from "node:path";
 import { CLAUDE_HOME } from "./paths.js";
 
 /**
- * Manages the agentsuit-controlled fragment block in CLAUDE.md.
- * The block is delimited by <!-- agentsuit:begin --> and <!-- agentsuit:end -->
+ * Manages the strongsuit-controlled fragment block in CLAUDE.md.
+ * The block is delimited by <!-- strongsuit:begin --> and <!-- strongsuit:end -->
  * and contains @references to library entries.
  */
 
-const BEGIN_MARKER = "<!-- agentsuit:begin (do not edit inside) -->";
-const END_MARKER = "<!-- agentsuit:end -->";
+const BEGIN_MARKER = "<!-- strongsuit:begin (do not edit inside) -->";
+const END_MARKER = "<!-- strongsuit:end -->";
+
+// Legacy markers from agentsuit era, used for migration only
+const LEGACY_BEGIN_MARKER = "<!-- agentsuit:begin (do not edit inside) -->";
+const LEGACY_END_MARKER = "<!-- agentsuit:end -->";
 
 /**
  * Gets the path to CLAUDE.md for a given scope.
@@ -34,51 +38,109 @@ function readClaudeMd(scope: "user" | "project"): string {
 
 /**
  * Validates that the marker block is well-formed (at most one, balanced).
+ * Allows either new or legacy markers, but not both.
  * Throws if markers are malformed.
  */
-function validateMarkers(content: string): void {
-  const beginCount = (content.match(new RegExp(BEGIN_MARKER, "g")) || []).length;
-  const endCount = (content.match(new RegExp(END_MARKER, "g")) || []).length;
+/**
+ * Counts literal occurrences. The markers contain regex metacharacters —
+ * `(do not edit inside)` reads as a capture group — so building a RegExp from
+ * one silently fails to match the text it came from.
+ */
+function countOccurrences(haystack: string, needle: string): number {
+  let count = 0;
+  let from = 0;
+  for (;;) {
+    const at = haystack.indexOf(needle, from);
+    if (at === -1) return count;
+    count += 1;
+    from = at + needle.length;
+  }
+}
 
-  if (beginCount > 1 || endCount > 1) {
+function validateMarkers(content: string): void {
+  const newBeginCount = countOccurrences(content, BEGIN_MARKER);
+  const newEndCount = countOccurrences(content, END_MARKER);
+  const legacyBeginCount = countOccurrences(content, LEGACY_BEGIN_MARKER);
+  const legacyEndCount = countOccurrences(content, LEGACY_END_MARKER);
+
+  // Check that we have at most one type of marker pair
+  const hasNew = newBeginCount > 0 || newEndCount > 0;
+  const hasLegacy = legacyBeginCount > 0 || legacyEndCount > 0;
+
+  if (hasNew && hasLegacy) {
     throw new Error(
-      "Malformed CLAUDE.md: duplicate agentsuit markers. Fix manually and retry."
+      "Malformed CLAUDE.md: mixed strongsuit and legacy agentsuit markers. Fix manually and retry."
     );
   }
 
-  if (beginCount !== endCount) {
+  if (newBeginCount > 1 || newEndCount > 1) {
     throw new Error(
-      "Malformed CLAUDE.md: unmatched agentsuit markers. Fix manually and retry."
+      "Malformed CLAUDE.md: duplicate strongsuit markers. Fix manually and retry."
+    );
+  }
+
+  if (legacyBeginCount > 1 || legacyEndCount > 1) {
+    throw new Error(
+      "Malformed CLAUDE.md: duplicate legacy agentsuit markers. Fix manually and retry."
+    );
+  }
+
+  if (newBeginCount !== newEndCount) {
+    throw new Error(
+      "Malformed CLAUDE.md: unmatched strongsuit markers. Fix manually and retry."
+    );
+  }
+
+  if (legacyBeginCount !== legacyEndCount) {
+    throw new Error(
+      "Malformed CLAUDE.md: unmatched legacy agentsuit markers. Fix manually and retry."
     );
   }
 }
 
 /**
- * Extracts the content outside the agentsuit block.
- * Returns { outside, hasBlock } where outside is the content without the block,
- * and hasBlock indicates whether a block was present.
+ * Extracts the content outside the strongsuit/legacy block.
+ * Returns { outside, hasBlock, blockContent } where outside is the content without the block,
+ * hasBlock indicates whether a block was present, and blockContent is the extracted content
+ * (useful for migrating legacy markers).
+ * Handles both new and legacy markers, automatically migrating legacy to new.
  */
 function extractOutside(
   content: string
-): { outside: string; hasBlock: boolean } {
-  const beginIdx = content.indexOf(BEGIN_MARKER);
+): { outside: string; hasBlock: boolean; blockContent: string } {
+  // Try new markers first
+  let beginIdx = content.indexOf(BEGIN_MARKER);
+  let endIdx = -1;
+  let endMarker = END_MARKER;
+  let isLegacy = false;
+
   if (beginIdx === -1) {
-    return { outside: content, hasBlock: false };
+    // Fall back to legacy markers
+    beginIdx = content.indexOf(LEGACY_BEGIN_MARKER);
+    endMarker = LEGACY_END_MARKER;
+    isLegacy = true;
   }
 
-  const endIdx = content.indexOf(END_MARKER, beginIdx);
+  if (beginIdx === -1) {
+    return { outside: content, hasBlock: false, blockContent: "" };
+  }
+
+  endIdx = content.indexOf(endMarker, beginIdx);
   if (endIdx === -1) {
     throw new Error("Malformed CLAUDE.md: begin marker without end marker");
   }
 
   const before = content.substring(0, beginIdx);
-  const after = content.substring(endIdx + END_MARKER.length);
+  const after = content.substring(endIdx + endMarker.length);
+  const blockStart = beginIdx + (isLegacy ? LEGACY_BEGIN_MARKER.length : BEGIN_MARKER.length);
+  const blockEnd = endIdx;
+  const blockContent = content.substring(blockStart, blockEnd).trim();
 
-  return { outside: before + after, hasBlock: true };
+  return { outside: before + after, hasBlock: true, blockContent };
 }
 
 /**
- * Updates the agentsuit fragment block in CLAUDE.md.
+ * Updates the strongsuit fragment block in CLAUDE.md.
  *
  * @param names - Array of library entry names to include in the block.
  *                Each becomes a @reference to its absolute path in library.
@@ -88,6 +150,7 @@ function extractOutside(
  * If names is empty, the block is removed entirely (if present).
  * If the file doesn't exist, it is created with the block at the end.
  * Content outside the markers is never modified.
+ * Automatically migrates legacy agentsuit markers to new strongsuit markers.
  */
 export function setFragments(
   names: string[],
@@ -134,7 +197,7 @@ ${END_MARKER}`;
 }
 
 /**
- * Clears the agentsuit fragment block from CLAUDE.md (if present).
+ * Clears the strongsuit fragment block from CLAUDE.md (if present).
  */
 export function clearFragments(scope: "user" | "project"): void {
   setFragments([], scope, "");

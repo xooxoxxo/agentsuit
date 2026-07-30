@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { SETS_FILE, AGENTSUIT_DIR, SUITS_DIR } from "./paths.js";
+import { SETS_FILE, STRONGSUIT_DIR, SUITS_DIR } from "./paths.js";
 import type { SetsFile } from "./types.js";
 import { listSuits, loadSuit, saveSuit, deleteSuit, suitExists } from "./suits.js";
 
@@ -9,7 +9,7 @@ import { listSuits, loadSuit, saveSuit, deleteSuit, suitExists } from "./suits.j
  * components.skills field. Also handles legacy conversion on first call.
  */
 export function loadSets(): SetsFile {
-  fs.mkdirSync(AGENTSUIT_DIR, { recursive: true });
+  fs.mkdirSync(STRONGSUIT_DIR, { recursive: true });
 
   // Legacy conversion: if sets.json exists and suits/ doesn't, convert
   if (fs.existsSync(SETS_FILE) && !fs.existsSync(SUITS_DIR)) {
@@ -39,7 +39,7 @@ export function loadSets(): SetsFile {
  * Each setName becomes a suit with components.skills populated.
  */
 export function saveSets(sets: SetsFile): void {
-  fs.mkdirSync(AGENTSUIT_DIR, { recursive: true });
+  fs.mkdirSync(STRONGSUIT_DIR, { recursive: true });
 
   // Determine which suits should exist
   const targetSuits = new Set(Object.keys(sets));

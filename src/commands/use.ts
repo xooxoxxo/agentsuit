@@ -25,7 +25,7 @@ export async function runUse(setName: string, scope: Scope): Promise<void> {
     if (foreign.length > 0) {
       console.log(
         chalk.yellow(
-          `Left untouched, not managed by agentsuit (${foreign.length}): ${foreign.join(", ")}`
+          `Left untouched, not managed by strongsuit (${foreign.length}): ${foreign.join(", ")}`
         )
       );
       console.log(chalk.dim(`Run \`suit init\` to bring these under management.`));

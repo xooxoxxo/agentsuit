@@ -46,14 +46,14 @@ describe("G1: homedir isolation guard", () => {
 });
 
 /**
- * G3: Path-containment guard — all managed paths must be inside AGENTSUIT_HOME.
+ * G3: Path-containment guard — all managed paths must be inside STRONGSUIT_HOME.
  * Scans allManagedPaths() for user scope only and verifies
  * that every computed path is within the temp home root.
- * (Project scope paths are legitimately outside AGENTSUIT_HOME by design.)
+ * (Project scope paths are legitimately outside STRONGSUIT_HOME by design.)
  */
 describe("G3: path-containment guard", () => {
-  it("all user-scoped managed paths are contained within AGENTSUIT_HOME", () => {
-    const tempHome = process.env.AGENTSUIT_HOME;
+  it("all user-scoped managed paths are contained within STRONGSUIT_HOME", () => {
+    const tempHome = process.env.STRONGSUIT_HOME;
     expect(tempHome).toBeDefined();
     if (!tempHome) return;
 

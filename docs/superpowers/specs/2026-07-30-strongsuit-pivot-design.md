@@ -1,4 +1,4 @@
-# agentsuit — Pivot Design: Skillsets → Agentic Suits
+# strongsuit — Pivot Design: Skillsets → Agentic Suits
 
 Date: 2026-07-30 · Status: approved in interactive brainstorming session
 Supersedes the initiative shape of `2026-07-29-claude-skillsets-initiative-design.md`
@@ -6,7 +6,7 @@ Supersedes the initiative shape of `2026-07-29-claude-skillsets-initiative-desig
 
 ## 1. The pivot
 
-First public release is not a skills switcher — it is **agentsuit** (bin `suit`): named,
+First public release is not a skills switcher — it is **strongsuit** (bin `suit`): named,
 atomically-switchable **suits** of an agent's entire customizable surface — skills, MCP
 servers, plugins, hooks, slash commands, subagents, rules/CLAUDE.md — with a **full
 review pipeline** for anything installed from a remote source. `suit up coding` dresses
@@ -33,7 +33,7 @@ rules apply immediately; managed settings always win; `disabledMcpServers` /
 
 1. **Two backends, one ownership discipline.** Symlink backend (shipped, 21 tests,
    mutation-verified) + **managed-entries backend**: an ownership ledger (state file in
-   the agentsuit home) records every JSON key agentsuit writes; keys absent from the
+   the strongsuit home) records every JSON key strongsuit writes; keys absent from the
    ledger are NEVER modified or deleted — the first-hop principle extended to JSON.
    Ledger-backend invariants get the same mutation-testing bar as XO-141.
 2. **Suit = manifest.** `suit.yaml` (yaml — the dependency already ships) listing components by type; local suits
@@ -50,9 +50,9 @@ rules apply immediately; managed settings always win; `disabledMcpServers` /
    - L2 (post-launch): optional `--review claude` headless security pass.
 5. **Skills core survives as a component type.** Existing library/sets migrate via
    `suit migrate`; nothing about the skills mechanics changes.
-6. **Naming:** npm package `agentsuit`, bin `suit`, config root `~/.claude/agentsuit/`
-   (library, suits, ledger, lockfile). GitHub repo renamed `agentsuit` (redirects keep
-   old links alive). First npm publish = **agentsuit@1.0.0** (the 1.1.0 internal
+6. **Naming:** npm package `strongsuit`, bin `suit`, config root `~/.claude/strongsuit/`
+   (library, suits, ledger, lockfile). GitHub repo renamed `strongsuit` (redirects keep
+   old links alive). First npm publish = **strongsuit@1.0.0** (the 1.1.0 internal
    version was never published; git history preserves it).
 
 ## 4. Feature tiers (walked with user 2026-07-30)
@@ -71,17 +71,17 @@ rules apply immediately; managed settings always win; `disabledMcpServers` /
 | 🟢 MUST | Review L3: lockfile hash pinning + drift block |
 | 🟢 MUST | `--yes` non-interactive mode (carried XO-156) |
 | 🟢 MUST | First-run onboarding (carried XO-158) |
-| 🟢 MUST | npm publish agentsuit@1.0.0 + brew tap + Actions release pipeline |
+| 🟢 MUST | npm publish strongsuit@1.0.0 + brew tap + Actions release pipeline |
 | 🟡 NICE | Permissions/env fragments (post-launch; merge semantics + trust care) |
 | 🟡 NICE | Review L2: agent-assisted security pass |
 | 🟡 NICE | suggest + find (re-voiced for suits; corpus incl. all component types) |
 | 🟡 NICE | status · doctor · up --add · .suitrc · unmigrate · export/import |
-| 🟡 NICE | Website (agentsuit brand, review pipeline as hero) |
+| 🟡 NICE | Website (strongsuit brand, review pipeline as hero) |
 | 🔵 FUTURE | Cross-agent targets, suit composition, registry/leaderboard, telemetry |
 
 ## 5. Milestones (restructured; M0 done, old M1 partially done and absorbed)
 
-- **M1 Rename** — agentsuit/suit rename across package, bin, paths, docs; repo rename;
+- **M1 Rename** — strongsuit/suit rename across package, bin, paths, docs; repo rename;
   `suit migrate`; README rebrand pass. App green throughout.
 - **M2 Suit core** — manifest schema + library; file-backend extension to
   commands/agents/rules/CLAUDE.md; `suit up` exclusive across file types; tests.
@@ -90,7 +90,7 @@ rules apply immediately; managed settings always win; `disabledMcpServers` /
 - **M4 Remote + review** — git fetch/install; review L1; lockfile L3; `--yes` mode;
   onboarding. Remote install PR and review-L1 PR land together (remote never exists
   unreviewed).
-- **M5 Launch** — publish agentsuit@1.0.0, cold npx verify, brew tap, Actions pipeline,
+- **M5 Launch** — publish strongsuit@1.0.0, cold npx verify, brew tap, Actions pipeline,
   positioning README final.
 - **M6 Post-launch (NICE pool)** — perms/env, review L2, suggest/find, status, doctor,
   up --add, .suitrc, unmigrate, export/import, website.
@@ -102,7 +102,7 @@ with their PR.
 
 - Done issues (XO-138..144, 157) stay as-is under their historical milestones.
 - XO-156 (--yes), XO-158 (onboarding): keep, re-milestone to M4.
-- XO-145 (publish): rewrite as agentsuit@1.0.0 launch, re-milestone M5.
+- XO-145 (publish): rewrite as strongsuit@1.0.0 launch, re-milestone M5.
 - XO-146/147 (suggest corpus/command): re-voice for suits, move to M6 pool.
 - XO-148..153, 159, 160 (status/doctor/--add/.skillsetrc/unmigrate/export/scaffold/
   website): move to M6 pool; .skillsetrc renamed .suitrc.

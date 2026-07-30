@@ -236,8 +236,8 @@ describe("migrate.ts — legacy layout relocation", () => {
         const { paths } = await loadModules(legacyOnlyHome);
 
         // Create and populate new root
-        fs.mkdirSync(paths.AGENTSUIT_DIR, { recursive: true });
-        fs.writeFileSync(path.join(paths.AGENTSUIT_DIR, "existing-file.txt"), "existing");
+        fs.mkdirSync(paths.STRONGSUIT_DIR, { recursive: true });
+        fs.writeFileSync(path.join(paths.STRONGSUIT_DIR, "existing-file.txt"), "existing");
 
         // Create legacy structure
         const legacyRoot = path.join(legacyOnlyHome, "skillsets");
@@ -381,6 +381,36 @@ describe("migrate.ts — legacy layout relocation", () => {
       // Verify real directory untouched
       expect(fs.lstatSync(realDirPath).isDirectory()).toBe(true);
       expect(fs.existsSync(path.join(realDirPath, "SKILL.md"))).toBe(true);
+    });
+  });
+
+  describe("legacy agentsuit root", () => {
+    it("m9: runMigrate relocates an agentsuit root, not just skillsets", async () => {
+      const { paths, migrate: migrateModule } = await loadModules(tempHome);
+
+      // makeTempHome pre-creates the new root; migration refuses a populated
+      // target by design, so clear it to model a machine that has only ever
+      // run the older identity.
+      fs.rmSync(paths.STRONGSUIT_DIR, { recursive: true, force: true });
+
+      // The intermediate identity: a machine that ran agentsuit before the
+      // strongsuit rename has its library under ~/.claude/agentsuit.
+      const legacyRoot = path.join(tempHome, "agentsuit");
+      const legacyLib = path.join(legacyRoot, "library");
+      fs.mkdirSync(path.join(legacyLib, "skill-x"), { recursive: true });
+      fs.writeFileSync(
+        path.join(legacyLib, "skill-x", "SKILL.md"),
+        "---\nname: skill-x\n---\n"
+      );
+      fs.writeFileSync(
+        path.join(legacyRoot, "sets.json"),
+        JSON.stringify({ coding: ["skill-x"] })
+      );
+
+      migrateModule.runMigrate();
+
+      expect(fs.existsSync(path.join(paths.LIBRARY_DIR, "skill-x", "SKILL.md"))).toBe(true);
+      expect(fs.existsSync(legacyRoot)).toBe(false);
     });
   });
 });

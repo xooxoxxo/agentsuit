@@ -7,7 +7,7 @@ A suit manifest is a YAML file that defines the contents of an agentic suit — 
 Each suit lives in its own directory:
 
 ```
-~/.claude/agentsuit/suits/<suit-name>/suit.yaml
+~/.claude/strongsuit/suits/<suit-name>/suit.yaml
 ```
 
 The directory name must match the suit's `name` field in the manifest.
@@ -28,7 +28,7 @@ The `components` field is an object that groups different types of resources. Al
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `skills` | string[] | Ordered list of skill names from the agentsuit library. |
+| `skills` | string[] | Ordered list of skill names from the strongsuit library. |
 | `commands` | string[] | List of command references (forward-compat). |
 | `agents` | string[] | List of agent references (forward-compat). |
 | `rules` | string[] | List of rule references (forward-compat). |
@@ -112,7 +112,7 @@ When these features are implemented, existing manifests will work without modifi
 
 ## Legacy Migration
 
-If you have a legacy `~/.claude/agentsuit/sets.json` file and no `suits/` directory, it will be automatically converted to suit manifests on the first `loadSets()` call:
+If you have a legacy `sets.json` file (from agentsuit or skillsets) and no `suits/` directory, it will be automatically converted to suit manifests on the first `loadSets()` call:
 
 1. Each set in `sets.json` becomes a suit directory with `name: <setname>`
 2. Skills are preserved as `components.skills`
@@ -123,7 +123,7 @@ This allows seamless migration from the old `sets.json` format to the new manife
 
 ## API
 
-Agentsuit provides a `suits.ts` module with the following functions:
+Strongsuit provides a `suits.ts` module with the following functions:
 
 - `listSuits(): string[]` — Returns an array of suit names.
 - `loadSuit(name: string): SuitManifest` — Loads a manifest by name. Throws if not found or invalid.

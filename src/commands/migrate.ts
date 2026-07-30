@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import chalk from "chalk";
-import { CLAUDE_HOME, AGENTSUIT_DIR, LIBRARY_DIR, activeSkillsDir } from "../paths.js";
+import { CLAUDE_HOME, STRONGSUIT_DIR, LIBRARY_DIR, activeSkillsDir } from "../paths.js";
 import { resolveSafe, lstatOrNull, isInside, immediateTarget, linkDir } from "../fsutil.js";
 import { loadSets, saveSets } from "../sets.js";
 
@@ -19,28 +19,41 @@ export interface MigrateResult {
 }
 
 /**
- * Relocates a legacy ~/.claude/skillsets installation to the new ~/.claude/agentsuit root.
+ * Relocates legacy installations to the new ~/.claude/strongsuit root.
+ * Handles migration from both ~/.claude/skillsets and ~/.claude/agentsuit.
  * - Moves library entries: real dirs moved; symlink entries recreated at new path.
  * - Moves sets.json verbatim (will convert to suit manifests on next loadSets call).
  * - Re-points active links in user active dir.
  * - Removes legacy root only if fully empty.
  */
 export function runMigrate(): void {
-  // Derive legacy root from the same AGENTSUIT_HOME mechanism as new paths
-  const legacyRoot = path.join(CLAUDE_HOME, "skillsets");
-  const legacyLibrary = path.join(legacyRoot, "library");
-  const legacySets = path.join(legacyRoot, "sets.json");
+  // Try agentsuit first (most recent), then skillsets (original)
+  const agentsuiteRoot = path.join(CLAUDE_HOME, "agentsuit");
+  const skillsetsRoot = path.join(CLAUDE_HOME, "skillsets");
 
-  // Check if legacy root exists
-  if (!fs.existsSync(legacyRoot)) {
-    console.log(chalk.dim("No legacy skillsets installation found at ~/.claude/skillsets — nothing to migrate."));
+  let legacyRoot: string | null = null;
+  let legacyLabel = "";
+
+  if (fs.existsSync(agentsuiteRoot)) {
+    legacyRoot = agentsuiteRoot;
+    legacyLabel = "agentsuit";
+  } else if (fs.existsSync(skillsetsRoot)) {
+    legacyRoot = skillsetsRoot;
+    legacyLabel = "skillsets";
+  }
+
+  if (!legacyRoot) {
+    console.log(chalk.dim("No legacy installation found (checked ~/.claude/agentsuit and ~/.claude/skillsets) — nothing to migrate."));
     return;
   }
 
+  const legacyLibrary = path.join(legacyRoot, "library");
+  const legacySets = path.join(legacyRoot, "sets.json");
+
   // Check if new root already populated AND legacy exists (refuse)
-  if (fs.existsSync(AGENTSUIT_DIR) && fs.readdirSync(AGENTSUIT_DIR).length > 0) {
+  if (fs.existsSync(STRONGSUIT_DIR) && fs.readdirSync(STRONGSUIT_DIR).length > 0) {
     throw new Error(
-      `New agentsuit root (${AGENTSUIT_DIR}) is already populated. ` +
+      `New strongsuit root (${STRONGSUIT_DIR}) is already populated. ` +
         `To prevent data loss, migration requires an empty target. ` +
         `Back up your legacy ${legacyRoot} and manually review the new root if needed.`
     );
@@ -49,6 +62,7 @@ export function runMigrate(): void {
   const result = migrate(legacyRoot, legacyLibrary, legacySets);
 
   // Report results
+  console.log(chalk.green(`\nMigrated from ~/.claude/${legacyLabel} to ~/.claude/strongsuit`));
   if (result.movedLibrary.length > 0) {
     console.log(chalk.green(`Moved library entries (${result.movedLibrary.length}): ${result.movedLibrary.join(", ")}`));
   }
@@ -139,7 +153,7 @@ export function migrate(legacyRoot: string, legacyLibrary: string, legacySets: s
   // Migrate sets.json
   if (fs.existsSync(legacySets)) {
     const setsContent = fs.readFileSync(legacySets, "utf8");
-    fs.writeFileSync(path.join(AGENTSUIT_DIR, "sets.json"), setsContent, "utf8");
+    fs.writeFileSync(path.join(STRONGSUIT_DIR, "sets.json"), setsContent, "utf8");
     fs.unlinkSync(legacySets); // Remove old sets.json
   }
 

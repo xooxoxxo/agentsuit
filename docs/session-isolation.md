@@ -75,7 +75,7 @@ requires an API key. The practical consequence is that the globally-active set i
 baseline every session inherits, so `suit up` should keep it lean and `suit run` layers
 the session's extras on top.
 
-## Resume semantics — the asymmetry that shapes `.agentsuit`
+## Resume semantics — the asymmetry that shapes `.strongsuit`
 
 The two halves of a suit behave differently when a conversation is resumed:
 
@@ -89,7 +89,7 @@ The two halves of a suit behave differently when a conversation is resumed:
 
 So resuming a conversation without re-supplying its flags silently re-attaches every MCP
 server the user has configured — the isolation quietly evaporates while the skills half
-still looks correct. Any per-conversation binding (`.agentsuit`) therefore has to
+still looks correct. Any per-conversation binding (`.strongsuit`) therefore has to
 re-apply the MCP flags on **every** launch, resume included; it does not need to do
 anything to keep skills consistent.
 
@@ -103,7 +103,7 @@ no hook that can prevent it.
 # Claim 8/10 — per-session skills via an ephemeral plugin of symlinks
 mkdir -p /tmp/suit/.claude-plugin /tmp/suit/skills
 echo '{"name":"suit-ephemeral","description":"one session"}' > /tmp/suit/.claude-plugin/plugin.json
-ln -s ~/.claude/agentsuit/library/<skill> /tmp/suit/skills/<skill>
+ln -s ~/.claude/strongsuit/library/<skill> /tmp/suit/skills/<skill>
 claude -p "…" --plugin-dir /tmp/suit          # skill is present, OAuth intact
 
 # Claim 1 — the MCP measurement

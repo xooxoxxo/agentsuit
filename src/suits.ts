@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parse, stringify } from "yaml";
-import { SUITS_DIR, AGENTSUIT_DIR } from "./paths.js";
+import { SUITS_DIR } from "./paths.js";
 
 /** Suit manifest schema */
 export interface SuitManifest {

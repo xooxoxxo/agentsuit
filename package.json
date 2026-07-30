@@ -1,7 +1,7 @@
 {
-  "name": "agentsuit",
+  "name": "strongsuit",
   "version": "1.1.0",
-  "description": "Agentic suits for Claude Code — dress your agent for the occasion: named, atomically-switchable sets of skills (MCP, plugins, hooks coming)",
+  "description": "Strongly-typed agentic skills for Claude Code — dress for the occasion: named, atomically-switchable collections (MCP, plugins, hooks coming)",
   "type": "module",
   "bin": {
     "suit": "./dist/cli.js"
@@ -31,14 +31,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/xooxoxxo/agentsuit"
+    "url": "https://github.com/xooxoxxo/strongsuit"
   },
-  "homepage": "https://github.com/xooxoxxo/agentsuit#readme",
+  "homepage": "https://github.com/xooxoxxo/strongsuit#readme",
   "bugs": {
-    "url": "https://github.com/xooxoxxo/agentsuit/issues"
+    "url": "https://github.com/xooxoxxo/strongsuit/issues"
   },
   "keywords": [
-    "agentsuit",
+    "strongsuit",
     "suit",
     "claude-code",
     "skills",

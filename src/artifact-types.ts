@@ -1,5 +1,5 @@
 import path from "node:path";
-import { CLAUDE_HOME, AGENTSUIT_DIR } from "./paths.js";
+import { CLAUDE_HOME, STRONGSUIT_DIR } from "./paths.js";
 
 /**
  * Artifact type definition for file-based, symlinkable artifact types.
@@ -83,8 +83,8 @@ export function getArtifactType(
 }
 
 /**
- * Get library path (under AGENTSUIT_DIR) for a given type
+ * Get library path (under STRONGSUIT_DIR) for a given type
  */
 export function libraryPathForType(type: ArtifactType): string {
-  return path.join(AGENTSUIT_DIR, type.librarySection);
+  return path.join(STRONGSUIT_DIR, type.librarySection);
 }
