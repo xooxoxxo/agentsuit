@@ -47,3 +47,31 @@ export function immediateTarget(linkPath: string): string | null {
   const parentReal = resolveSafe(path.dirname(abs));
   return parentReal === null ? abs : path.join(parentReal, path.basename(abs));
 }
+
+/**
+ * Creates a symlink or junction. On Windows, uses 'junction' for better compatibility
+ * when Developer Mode is unavailable; on POSIX systems uses 'dir'-style symlinks.
+ * Target is resolved to absolute path before linking to ensure junctions point correctly.
+ *
+ * Wraps EPERM/EACCES failures with actionable guidance (mention Developer Mode on Windows).
+ */
+export function linkDir(target: string, linkPath: string): void {
+  // Resolve target to absolute path for consistency (especially important for junctions on Windows).
+  const absTarget = path.isAbsolute(target) ? target : path.resolve(target);
+
+  const type = process.platform === "win32" ? "junction" : "dir";
+  try {
+    fs.symlinkSync(absTarget, linkPath, type);
+  } catch (err) {
+    const e = err as NodeJS.ErrnoException;
+    if (e.code === "EPERM" || e.code === "EACCES") {
+      throw new Error(
+        `Failed to create link "${linkPath}": permission denied. ` +
+          (process.platform === "win32"
+            ? "On Windows, either enable Developer Mode (Settings > Privacy & Security > Developer Mode) or run as Administrator."
+            : "Try running with elevated privileges or check directory permissions.")
+      );
+    }
+    throw err;
+  }
+}

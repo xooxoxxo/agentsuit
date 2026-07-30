@@ -432,4 +432,89 @@ describe("activate.ts safety invariants", () => {
       ).toBe(true);
     });
   });
+
+  describe("linkDir — symlink/junction creation", () => {
+    it("a15: creates link with correct type per platform", async () => {
+      const { fsutil, paths } = await loadModules(tempHome);
+
+      // Create target directory
+      const targetDir = path.join(tempHome, "target-skill");
+      fs.mkdirSync(targetDir, { recursive: true });
+      fs.writeFileSync(path.join(targetDir, "SKILL.md"), "---\nname: test\n---\n");
+
+      // Create link
+      const linkPath = path.join(tempHome, "link-to-skill");
+      fsutil.linkDir(targetDir, linkPath);
+
+      // Verify link exists and is a symlink
+      expect(fs.existsSync(linkPath)).toBe(true);
+      expect(fs.lstatSync(linkPath).isSymbolicLink()).toBe(true);
+
+      // Verify link resolves to target
+      const resolved = fs.realpathSync(linkPath);
+      const targetReal = fs.realpathSync(targetDir);
+      expect(resolved).toBe(targetReal);
+    });
+
+    it("a16: link target stored as absolute on Windows junctions", async () => {
+      const { fsutil, paths } = await loadModules(tempHome);
+
+      // Create target in a subdirectory
+      const subdir = path.join(tempHome, "subdir");
+      const targetDir = path.join(subdir, "target");
+      fs.mkdirSync(targetDir, { recursive: true });
+      fs.writeFileSync(path.join(targetDir, "SKILL.md"), "---\n---\n");
+
+      // Create link with absolute target path
+      const linkPath = path.join(tempHome, "links", "my-link");
+      fs.mkdirSync(path.dirname(linkPath), { recursive: true });
+
+      fsutil.linkDir(targetDir, linkPath);
+
+      // Link should exist and resolve correctly
+      expect(fs.existsSync(linkPath)).toBe(true);
+      const resolved = fs.realpathSync(linkPath);
+      const targetReal = fs.realpathSync(targetDir);
+      expect(resolved).toBe(targetReal);
+
+      // On Windows, junctions store absolute paths; on POSIX, symlinks can be relative
+      const linkTarget = fs.readlinkSync(linkPath);
+      if (process.platform === "win32") {
+        expect(path.isAbsolute(linkTarget)).toBe(true);
+      }
+      // On POSIX, the target may be relative or absolute depending on how it was passed
+    });
+
+    it("a17: throws with actionable message on permission denied", async () => {
+      // Skip this test on platforms where we can't easily trigger EPERM
+      if (process.platform !== "linux") {
+        // On macOS and Windows, skipping EPERM test; junctions/symlinks have different privilege models
+        return;
+      }
+
+      const { fsutil } = await loadModules(tempHome);
+
+      // Create target
+      const targetDir = path.join(tempHome, "target");
+      fs.mkdirSync(targetDir, { recursive: true });
+
+      // Create a readonly directory where we can't create symlinks
+      const readOnlyDir = path.join(tempHome, "readonly");
+      fs.mkdirSync(readOnlyDir, { recursive: true });
+      fs.chmodSync(readOnlyDir, 0o444);
+
+      try {
+        const linkPath = path.join(readOnlyDir, "link");
+        fsutil.linkDir(targetDir, linkPath);
+        expect.fail("should have thrown");
+      } catch (err) {
+        const e = err as Error;
+        // Should mention Developer Mode on Windows or elevated privileges
+        expect(e.message).toMatch(/permission denied|Developer Mode|elevated/i);
+      } finally {
+        // Restore permissions for cleanup
+        fs.chmodSync(readOnlyDir, 0o755);
+      }
+    });
+  });
 });
