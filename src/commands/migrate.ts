@@ -21,7 +21,7 @@ export interface MigrateResult {
 /**
  * Relocates a legacy ~/.claude/skillsets installation to the new ~/.claude/agentsuit root.
  * - Moves library entries: real dirs moved; symlink entries recreated at new path.
- * - Moves sets.json verbatim.
+ * - Moves sets.json verbatim (will convert to suit manifests on next loadSets call).
  * - Re-points active links in user active dir.
  * - Removes legacy root only if fully empty.
  */
