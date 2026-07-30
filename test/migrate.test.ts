@@ -236,8 +236,8 @@ describe("migrate.ts — legacy layout relocation", () => {
         const { paths } = await loadModules(legacyOnlyHome);
 
         // Create and populate new root
-        fs.mkdirSync(paths.AGENTSUIT_DIR, { recursive: true });
-        fs.writeFileSync(path.join(paths.AGENTSUIT_DIR, "existing-file.txt"), "existing");
+        fs.mkdirSync(paths.STRONGSUIT_DIR, { recursive: true });
+        fs.writeFileSync(path.join(paths.STRONGSUIT_DIR, "existing-file.txt"), "existing");
 
         // Create legacy structure
         const legacyRoot = path.join(legacyOnlyHome, "skillsets");

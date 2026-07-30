@@ -189,10 +189,10 @@ More stuff.
       // Read the file and check that the original content outside markers is preserved
       const newContent = fs.readFileSync(claudeMdFile, "utf-8");
 
-      // The original content should still be there, just with the agentsuit block appended
+      // The original content should still be there, just with the strongsuit block appended
       expect(newContent.startsWith("# My Config")).toBe(true);
       expect(newContent.includes("Some important notes here")).toBe(true);
-      expect(newContent.includes("<!-- agentsuit:begin")).toBe(true);
+      expect(newContent.includes("<!-- strongsuit:begin")).toBe(true);
     });
   });
 

@@ -19,7 +19,7 @@ const cli = meow(
     $ suit <command> [args] [--project]
 
   ${chalk.bold("Commands")}
-    migrate                     Relocate legacy ~/.claude/skillsets to ~/.claude/agentsuit
+    migrate                     Relocate legacy ~/.claude/skillsets or ~/.claude/agentsuit to ~/.claude/strongsuit
     init                        Migrate real skill dirs in the active folder into a managed library
     list                        Show every skill in the library and whether it's active
     sets                        Show defined sets and which one (if any) is active

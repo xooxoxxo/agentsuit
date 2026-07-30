@@ -251,7 +251,7 @@ describe("suits.ts manifest schema + storage", () => {
       const { paths } = await loadModules(tempHome);
 
       // Create legacy sets.json
-      const agentsuitDir = path.join(tempHome, "agentsuit");
+      const agentsuitDir = path.join(tempHome, "strongsuit");
       fs.mkdirSync(agentsuitDir, { recursive: true });
       const setsFile = path.join(agentsuitDir, "sets.json");
       fs.writeFileSync(
@@ -296,7 +296,7 @@ describe("suits.ts manifest schema + storage", () => {
       const { paths } = await loadModules(tempHome);
 
       // Create legacy sets.json
-      const agentsuitDir = path.join(tempHome, "agentsuit");
+      const agentsuitDir = path.join(tempHome, "strongsuit");
       fs.mkdirSync(agentsuitDir, { recursive: true });
       const setsFile = path.join(agentsuitDir, "sets.json");
       fs.writeFileSync(setsFile, JSON.stringify({ "test-set": ["skill"] }), "utf8");
@@ -335,7 +335,7 @@ describe("suits.ts manifest schema + storage", () => {
       const result = migrate.migrate(legacyRoot, legacyLibrary, legacySets);
 
       // Verify sets.json was moved to new location
-      const newSetsPath = path.join(paths.AGENTSUIT_DIR, "sets.json");
+      const newSetsPath = path.join(paths.STRONGSUIT_DIR, "sets.json");
       expect(fs.existsSync(newSetsPath)).toBe(true);
 
       // Reset modules to trigger conversion on next loadSets

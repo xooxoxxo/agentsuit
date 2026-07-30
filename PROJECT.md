@@ -1,4 +1,4 @@
-# agentsuit — Project Document
+# strongsuit — Project Document
 
 > Working reference for the release README, website copy, and codebase review.
 > Version: 1.1.0 · Status: functional, tested end to end, not yet published
@@ -32,7 +32,7 @@ directly in `.claude/skills/` — that has been an open feature request
 (anthropics/claude-code#43928). And there is certainly no concept of a *named group* of skills
 you switch between as your work changes.
 
-**agentsuit fills that gap.** You define sets — `coding`, `marketing`, `legal`,
+**strongsuit fills that gap.** You define sets — `coding`, `marketing`, `legal`,
 `writing` — and switch between them with one command. Nothing is deleted; switching is
 instant and reversible.
 
@@ -55,10 +55,10 @@ that directory are real folders or symlinks. So:
 ```
 ~/.claude/
 ├── skills/                          ← Claude Code reads THIS
-│   ├── docx -> ../agentsuit/library/docx
-│   ├── pptx -> ../agentsuit/library/pptx
-│   └── xlsx -> ../agentsuit/library/xlsx
-└── agentsuit/                       ← managed by this CLI
+│   ├── docx -> ../strongsuit/library/docx
+│   ├── pptx -> ../strongsuit/library/pptx
+│   └── xlsx -> ../strongsuit/library/xlsx
+└── strongsuit/                       ← managed by this CLI
     ├── library/                     ← real skill folders live here, always
     │   ├── brand-voice-enforcement/
     │   │   └── SKILL.md
@@ -93,7 +93,7 @@ Every command that touches active state takes an optional `--project` flag.
 | user (default) | `~/.claude/skills` | — |
 | project | `<cwd>/.claude/skills` | `--project` |
 
-The library and `sets.json` are **shared** — they always live under `~/.claude/agentsuit/`.
+The library and `sets.json` are **shared** — they always live under `~/.claude/strongsuit/`.
 Only the active directory differs. This means you define a set once and can activate it
 globally, or per repository, without duplicating anything.
 
@@ -415,7 +415,7 @@ negatives with smaller models during testing.
 
 1. Real test suite (vitest) around `activate.ts`, exercised against a temp `CLAUDE_SKILLSETS_HOME`.
 2. Windows symlink handling — junction fallback or a documented, graceful failure.
-3. Publish to npm with a prebuilt `dist/`; verify `npx agentsuit` works cold.
+3. Publish to npm with a prebuilt `dist/`; verify `npx strongsuit` works cold.
 4. `suit status` — a compact one-line "active set + count + est. tokens" for shell prompts.
 
 **Plausible next**

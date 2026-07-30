@@ -1,15 +1,15 @@
-# agentsuit
+# strongsuit
 
 **Agentic suits for Claude Code — dress your agent for the occasion.**
 
-Claude Code warns when installed skills inflate token usage, and the only remedy is deleting and re-downloading them later. `agentsuit` lets you define named sets — `coding`, `marketing`, `legal`, `writing` — and switch between them instantly. Nothing is deleted; switching moves only symlinks and is instantly reversible.
+Claude Code warns when installed skills inflate token usage, and the only remedy is deleting and re-downloading them later. `strongsuit` lets you define named sets — `coding`, `marketing`, `legal`, `writing` — and switch between them instantly. Nothing is deleted; switching moves only symlinks and is instantly reversible.
 
 ## Quick start
 
 For now, clone and link locally:
 ```bash
-git clone https://github.com/xooxoxxo/agentsuit
-cd agentsuit && npm install && npm run build
+git clone https://github.com/xooxoxxo/strongsuit
+cd strongsuit && npm install && npm run build
 npm link          # gives you the `suit` command
 ```
 
@@ -20,7 +20,7 @@ suit new coding          # Define a set interactively
 suit use coding          # Activate it
 ```
 
-**Publishing soon** — `npm install -g agentsuit` will work once published.
+**Publishing soon** — `npm install -g strongsuit` will work once published.
 
 ## How it works
 
@@ -29,10 +29,10 @@ The trick: Claude Code reads a *directory* and does not care if entries are real
 ```
 ~/.claude/
 ├── skills/                          ← Claude Code reads THIS
-│   ├── docx -> ../agentsuit/library/docx
-│   ├── pptx -> ../agentsuit/library/pptx
-│   └── xlsx -> ../agentsuit/library/xlsx
-└── agentsuit/                       ← managed by this CLI
+│   ├── docx -> ../strongsuit/library/docx
+│   ├── pptx -> ../strongsuit/library/pptx
+│   └── xlsx -> ../strongsuit/library/xlsx
+└── strongsuit/                       ← managed by this CLI
     ├── library/                     ← real skill folders live here, always
     │   ├── brand-voice-enforcement/
     │   │   └── SKILL.md
