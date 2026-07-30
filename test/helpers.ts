@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { vi } from "vitest";
@@ -8,7 +9,7 @@ import { vi } from "vitest";
  * Returns the path; caller is responsible for cleanup (rmSync with recursive: true).
  */
 export function makeTempHome(): string {
-  const tempHome = fs.mkdtempSync(path.join(process.env.TMPDIR || "/tmp", "test-claude-"));
+  const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "test-claude-"));
 
   // Create the skillsets structure
   const skillsetsDir = path.join(tempHome, "skillsets");

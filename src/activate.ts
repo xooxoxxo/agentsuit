@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { activeSkillsDir } from "./paths.js";
 import { findSkill, listLibrarySkills } from "./library.js";
-import { resolveSafe, lstatOrNull, isInside, immediateTarget } from "./fsutil.js";
+import { resolveSafe, lstatOrNull, isInside, immediateTarget, linkDir } from "./fsutil.js";
 
 export type Scope = "user" | "project";
 
@@ -61,7 +61,7 @@ export function enableSkill(name: string, scope: Scope): void {
     );
   }
 
-  fs.symlinkSync(skill.path, linkPath, "dir");
+  linkDir(skill.path, linkPath);
 }
 
 /** Removes the symlink for a skill from the active dir. Library copy is untouched. */
@@ -122,7 +122,7 @@ export function activateOnly(names: string[], scope: Scope, libraryDir: string):
     }
     const linkPath = path.join(activeDir, name);
     if (lstatOrNull(linkPath)) continue; // foreign link or real dir already occupies the name
-    fs.symlinkSync(skill.path, linkPath, "dir");
+    linkDir(skill.path, linkPath);
     linked.push(name);
   }
 
@@ -186,12 +186,12 @@ export function initMigrate(scope: Scope, libraryDir: string): InitResult {
         continue;
       }
       if (existing === null) {
-        fs.symlinkSync(target, libPath, "dir");
+        linkDir(target, libPath);
       }
 
       // Re-point the active link at the library entry so every active link is uniform.
       fs.unlinkSync(activePath);
-      fs.symlinkSync(libPath, activePath, "dir");
+      linkDir(libPath, activePath);
       adopted.push(entry.name);
       continue;
     }
@@ -207,7 +207,7 @@ export function initMigrate(scope: Scope, libraryDir: string): InitResult {
 
     fs.cpSync(activePath, libPath, { recursive: true });
     fs.rmSync(activePath, { recursive: true, force: true });
-    fs.symlinkSync(libPath, activePath, "dir");
+    linkDir(libPath, activePath);
     migrated.push(entry.name);
   }
 
