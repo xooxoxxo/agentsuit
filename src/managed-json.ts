@@ -170,13 +170,29 @@ export class ManagedJson {
       const pathArray = this.normalizePath(jsonPath);
       const ledgerEntry = this.ledger.get(absPath, pathArray);
 
-      if (ledgerEntry) {
-        const currentValue = this.getNestedValue(current, pathArray);
-        const currentHash = hashValue(currentValue);
-        if (currentHash !== ledgerEntry.valueHash) {
-          // Foreign-edited; don't remove
-          continue;
-        }
+      // Only ever remove what the ledger says we wrote. A path we do not own
+      // is someone else's key that happens to share a name — the JSON
+      // counterpart of refusing to unlink a symlink we did not create.
+      if (!ledgerEntry) continue;
+
+      const currentValue = this.getNestedValue(current, pathArray);
+      if (hashValue(currentValue) !== ledgerEntry.valueHash) {
+        // Foreign-edited since we wrote it; leave it alone.
+        continue;
+      }
+
+      // Arrays would need value-identity matching to be removed safely;
+      // `delete arr[i]` leaves a hole. No component type writes into arrays
+      // yet, so refuse rather than corrupt. Implemented with permissions
+      // support (XO-186).
+      const parent =
+        pathArray.length > 1
+          ? this.getNestedValue(current, pathArray.slice(0, -1))
+          : current;
+      if (Array.isArray(parent)) {
+        throw new Error(
+          `Refusing to remove ${pathArray.join(".")} from ${file}: removal inside JSON arrays is not supported yet.`
+        );
       }
 
       toRemove.push(pathArray);

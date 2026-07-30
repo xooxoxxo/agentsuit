@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -207,8 +207,6 @@ describe("ManagedJson — JSON config surface editor", () => {
 
   describe("m8: empty parent pruning only for agentsuit-created parents", () => {
     it("prunes empty parents only if createdParent is true", () => {
-      const mg = new ManagedJson(ledgerPath, backupsDir);
-
       // Setup: create config with nested structure
       const initial = { hooks: { PreToolUse: "echo start", PostToolUse: "echo end" } };
       fs.writeFileSync(configFile, JSON.stringify(initial));
@@ -225,6 +223,10 @@ describe("ManagedJson — JSON config surface editor", () => {
       );
       ledger.save();
 
+      // Construct after the ledger is on disk: ManagedJson loads it at
+      // construction, so an entry saved later is invisible to it.
+      const mg = new ManagedJson(ledgerPath, backupsDir);
+
       // Remove PreToolUse (empty parent should be pruned)
       mg.removeEntries(configFile, [["hooks", "PreToolUse"]]);
 
@@ -237,8 +239,6 @@ describe("ManagedJson — JSON config surface editor", () => {
     });
 
     it("does NOT prune parent if createdParent is false", () => {
-      const mg = new ManagedJson(ledgerPath, backupsDir);
-
       const initial = { settings: { only_key: "value" } };
       fs.writeFileSync(configFile, JSON.stringify(initial));
 
@@ -246,6 +246,10 @@ describe("ManagedJson — JSON config surface editor", () => {
       const ledger = new Ledger(ledgerPath);
       ledger.record(configFile, ["settings", "only_key"], "value", "suit-a", false);
       ledger.save();
+
+      // Construct after the ledger is on disk: ManagedJson loads it at
+      // construction, so an entry saved later is invisible to it.
+      const mg = new ManagedJson(ledgerPath, backupsDir);
 
       // Remove only_key
       mg.removeEntries(configFile, [["settings", "only_key"]]);
@@ -407,6 +411,87 @@ describe("ManagedJson — JSON config surface editor", () => {
       // Retrieve with absolute path
       const entries = mg.getLedgerEntries(path.join(tempDir, "config.json"));
       expect(entries).toHaveLength(1);
+    });
+  });
+
+  describe("m11: removal is limited to owned keys", () => {
+    it("a key agentsuit never wrote is left in place", () => {
+      const mg = new ManagedJson(ledgerPath, backupsDir);
+      fs.writeFileSync(
+        configFile,
+        JSON.stringify({ mcpServers: { theirs: { command: "x" } } }, null, 2)
+      );
+
+      // Same shape, same name — but nothing in the ledger says it is ours.
+      mg.removeEntries(configFile, [["mcpServers", "theirs"]]);
+
+      const after = JSON.parse(fs.readFileSync(configFile, "utf-8"));
+      expect(after.mcpServers.theirs).toEqual({ command: "x" });
+    });
+
+    it("an owned neighbour is removed while the foreign key survives", () => {
+      const mg = new ManagedJson(ledgerPath, backupsDir);
+      fs.writeFileSync(
+        configFile,
+        JSON.stringify({ mcpServers: { theirs: { command: "x" } } }, null, 2)
+      );
+      mg.setEntries(
+        configFile,
+        [{ jsonPath: ["mcpServers", "ours"], value: { command: "y" } }],
+        "suit-a"
+      );
+
+      mg.removeEntries(configFile, [
+        ["mcpServers", "ours"],
+        ["mcpServers", "theirs"],
+      ]);
+
+      const after = JSON.parse(fs.readFileSync(configFile, "utf-8"));
+      expect(after.mcpServers.ours).toBeUndefined();
+      expect(after.mcpServers.theirs).toEqual({ command: "x" });
+    });
+  });
+
+  describe("m12: writes are atomic", () => {
+    it("goes through a temp file and rename, never a truncating write", () => {
+      const mg = new ManagedJson(ledgerPath, backupsDir);
+      fs.writeFileSync(configFile, JSON.stringify({ a: 1 }, null, 2));
+
+      // Atomicity is a mechanism guarantee: a direct write can leave the
+      // user's settings truncated if the process dies mid-write. Assert the
+      // mechanism, since staging a real crash is not reproducible.
+      const renameSpy = vi.spyOn(fs, "renameSync");
+      const writeSpy = vi.spyOn(fs, "writeFileSync");
+
+      mg.setEntries(configFile, [{ jsonPath: "own", value: 1 }], "suit-a");
+
+      const renamedInto = renameSpy.mock.calls.filter(
+        (c) => path.resolve(String(c[1])) === path.resolve(configFile)
+      );
+      expect(renamedInto.length).toBeGreaterThan(0);
+
+      const wroteDirectly = writeSpy.mock.calls.filter(
+        (c) => path.resolve(String(c[0])) === path.resolve(configFile)
+      );
+      expect(wroteDirectly).toHaveLength(0);
+
+      renameSpy.mockRestore();
+      writeSpy.mockRestore();
+    });
+  });
+
+  describe("m13: array removal refuses rather than corrupting", () => {
+    it("removing inside an array throws instead of leaving a hole", () => {
+      const mg = new ManagedJson(ledgerPath, backupsDir);
+      fs.writeFileSync(configFile, JSON.stringify({ allow: [] }, null, 2));
+      mg.setEntries(configFile, [{ jsonPath: ["allow", "0"], value: "Bash(ls)" }], "suit-a");
+
+      expect(() => mg.removeEntries(configFile, [["allow", "0"]])).toThrow(
+        /arrays is not supported/i
+      );
+
+      const after = JSON.parse(fs.readFileSync(configFile, "utf-8"));
+      expect(after.allow).toEqual(["Bash(ls)"]);
     });
   });
 });
