@@ -6,7 +6,7 @@ import { loadSets, saveSets } from "../sets.js";
 export async function runNew(setName: string): Promise<void> {
   const skills = listLibrarySkills();
   if (skills.length === 0) {
-    console.log(chalk.yellow("Library is empty — run `skillset init` first."));
+    console.log(chalk.yellow("Library is empty — run `suit init` first."));
     return;
   }
 
@@ -43,7 +43,7 @@ export async function runNew(setName: string): Promise<void> {
   sets[setName] = chosen;
   saveSets(sets);
   console.log(chalk.green(`\nSaved set "${setName}" with ${chosen.length} skill(s).`));
-  console.log(chalk.dim(`Run \`skillset use ${setName}\` to activate it.`));
+  console.log(chalk.dim(`Run \`suit use ${setName}\` to activate it.`));
 }
 
 function truncate(s: string, n: number): string {

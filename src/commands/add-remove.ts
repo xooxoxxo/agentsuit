@@ -7,7 +7,7 @@ import { LIBRARY_DIR } from "../paths.js";
 
 export function runAdd(setName: string, skillName: string): void {
   if (!findSkill(skillName)) {
-    console.log(chalk.red(`"${skillName}" is not in the library. Run \`skillset import <path>\` first.`));
+    console.log(chalk.red(`"${skillName}" is not in the library. Run \`suit import <path>\` first.`));
     return;
   }
   const sets = loadSets();

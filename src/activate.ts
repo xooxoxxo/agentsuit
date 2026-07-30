@@ -57,7 +57,7 @@ export function enableSkill(name: string, scope: Scope): void {
   if (stat) {
     if (stat.isSymbolicLink()) return; // already linked
     throw new Error(
-      `"${linkPath}" exists and is a real directory, not a managed symlink. Run "skillset init" first.`
+      `"${linkPath}" exists and is a real directory, not a managed symlink. Run "suit init" first.`
     );
   }
 
@@ -73,7 +73,7 @@ export function disableSkill(name: string, scope: Scope): void {
 
   if (!stat.isSymbolicLink()) {
     throw new Error(
-      `"${linkPath}" is a real directory, not a managed symlink. Refusing to delete \u2014 run "skillset init" first.`
+      `"${linkPath}" is a real directory, not a managed symlink. Refusing to delete \u2014 run "suit init" first.`
     );
   }
   fs.unlinkSync(linkPath);
@@ -92,7 +92,7 @@ export interface ActivateResult {
  *
  * Symlinks pointing outside the library are deliberately left alone: this tool did not
  * create them and does not know how to restore them, so deleting them would destroy
- * information. They are reported back so the caller can suggest `skillset init`.
+ * information. They are reported back so the caller can suggest `suit init`.
  */
 export function activateOnly(names: string[], scope: Scope, libraryDir: string): ActivateResult {
   const activeDir = ensureActiveDir(scope);

@@ -10,7 +10,7 @@ export async function runUse(setName: string, scope: Scope): Promise<void> {
   const skillNames = sets[setName];
 
   if (!skillNames) {
-    console.log(chalk.red(`No set named "${setName}". Run \`skillset sets\` to see what's defined.`));
+    console.log(chalk.red(`No set named "${setName}". Run \`suit sets\` to see what's defined.`));
     return;
   }
 
@@ -25,10 +25,10 @@ export async function runUse(setName: string, scope: Scope): Promise<void> {
     if (foreign.length > 0) {
       console.log(
         chalk.yellow(
-          `Left untouched, not managed by skillset (${foreign.length}): ${foreign.join(", ")}`
+          `Left untouched, not managed by agentsuit (${foreign.length}): ${foreign.join(", ")}`
         )
       );
-      console.log(chalk.dim(`Run \`skillset init\` to bring these under management.`));
+      console.log(chalk.dim(`Run \`suit init\` to bring these under management.`));
     }
   } catch (err) {
     spinner.fail(`Failed to switch sets: ${(err as Error).message}`);
