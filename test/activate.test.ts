@@ -149,6 +149,39 @@ describe("activate.ts safety invariants", () => {
       // The external skill should still exist and be unchanged
       expect(fs.existsSync(externalDir)).toBe(true);
     });
+
+    it("a5b: adopted chain is managed by first hop — use can remove and relink it", async () => {
+      const { activate, paths } = await loadModules(tempHome);
+
+      const activeDir = paths.activeSkillsDir("user");
+      fs.mkdirSync(activeDir, { recursive: true });
+
+      // Adopted state: active/x -> library/x -> externalDir. Fully resolving the
+      // chain lands OUTSIDE the library; only the first hop proves ownership.
+      const externalDir = path.join(tempHome, "external", "chain-skill");
+      fs.mkdirSync(externalDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(externalDir, "SKILL.md"),
+        "---\nname: chain-skill\ndescription: External adopted skill\n---\n"
+      );
+      const libLinkPath = path.join(paths.LIBRARY_DIR, "chain-skill");
+      fs.symlinkSync(externalDir, libLinkPath, "dir");
+      const activeLinkPath = path.join(activeDir, "chain-skill");
+      fs.symlinkSync(libLinkPath, activeLinkPath, "dir");
+
+      // Switching to a set WITHOUT the adopted skill must remove its active
+      // link (it is managed) and must not report it as foreign.
+      const cleared = activate.activateOnly(["skill-a"], "user", paths.LIBRARY_DIR);
+      expect(fs.existsSync(activeLinkPath)).toBe(false);
+      expect(cleared.foreign).not.toContain("chain-skill");
+
+      // Switching to a set WITH it relinks through the library and the chain
+      // still resolves to the external content.
+      const relinked = activate.activateOnly(["chain-skill"], "user", paths.LIBRARY_DIR);
+      expect(relinked.linked).toContain("chain-skill");
+      expect(fs.lstatSync(activeLinkPath).isSymbolicLink()).toBe(true);
+      expect(fs.realpathSync(activeLinkPath)).toBe(fs.realpathSync(externalDir));
+    });
   });
 
   describe("initMigrate — idempotency", () => {
