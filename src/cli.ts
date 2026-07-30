@@ -8,6 +8,7 @@ import { runUse } from "./commands/use.js";
 import { runEnable, runDisable } from "./commands/toggle.js";
 import { runInit } from "./commands/init.js";
 import { runAdd, runRemove, runImport } from "./commands/add-remove.js";
+import { runCompletion } from "./commands/completion.js";
 import type { Scope } from "./activate.js";
 
 const cli = meow(
@@ -26,6 +27,7 @@ const cli = meow(
     add <set> <skill>           Add a skill to a set's definition
     remove <set> <skill>        Remove a skill from a set's definition
     import <path> [--as name]   Copy an external skill folder into the library
+    completion <shell>          Print shell completion script (bash or zsh)
 
   ${chalk.bold("Flags")}
     --project     Operate on ./.claude/skills instead of ~/.claude/skills
@@ -97,6 +99,10 @@ async function main(): Promise<void> {
     case "import":
       requireArg(args[0], "path");
       runImport(args[0], cli.flags.as);
+      break;
+    case "completion":
+      requireArg(args[0], "shell");
+      runCompletion(args[0], args[1]);
       break;
     default:
       cli.showHelp(0);
