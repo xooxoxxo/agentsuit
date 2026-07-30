@@ -139,7 +139,7 @@ export class ManagedJson {
   }
 
   /**
-   * Remove entries from a JSON file. Prunes empty parents only if agentsuit created them.
+   * Remove entries from a JSON file. Prunes empty parents only if strongsuit created them.
    * @param file File path
    * @param jsonPaths Array of paths to remove
    * @throws If ledger is corrupted
@@ -202,7 +202,7 @@ export class ManagedJson {
     for (const pathArray of toRemove) {
       this.removeNestedValue(current, pathArray);
 
-      // Prune empty parents only if agentsuit created them
+      // Prune empty parents only if strongsuit created them
       const ledgerEntry = this.ledger.get(absPath, pathArray);
       if (ledgerEntry?.createdParent) {
         this.pruneEmptyParents(current, pathArray);

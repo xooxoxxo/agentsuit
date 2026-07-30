@@ -41,11 +41,27 @@ function readClaudeMd(scope: "user" | "project"): string {
  * Allows either new or legacy markers, but not both.
  * Throws if markers are malformed.
  */
+/**
+ * Counts literal occurrences. The markers contain regex metacharacters —
+ * `(do not edit inside)` reads as a capture group — so building a RegExp from
+ * one silently fails to match the text it came from.
+ */
+function countOccurrences(haystack: string, needle: string): number {
+  let count = 0;
+  let from = 0;
+  for (;;) {
+    const at = haystack.indexOf(needle, from);
+    if (at === -1) return count;
+    count += 1;
+    from = at + needle.length;
+  }
+}
+
 function validateMarkers(content: string): void {
-  const newBeginCount = (content.match(new RegExp(BEGIN_MARKER, "g")) || []).length;
-  const newEndCount = (content.match(new RegExp(END_MARKER, "g")) || []).length;
-  const legacyBeginCount = (content.match(new RegExp(LEGACY_BEGIN_MARKER, "g")) || []).length;
-  const legacyEndCount = (content.match(new RegExp(LEGACY_END_MARKER, "g")) || []).length;
+  const newBeginCount = countOccurrences(content, BEGIN_MARKER);
+  const newEndCount = countOccurrences(content, END_MARKER);
+  const legacyBeginCount = countOccurrences(content, LEGACY_BEGIN_MARKER);
+  const legacyEndCount = countOccurrences(content, LEGACY_END_MARKER);
 
   // Check that we have at most one type of marker pair
   const hasNew = newBeginCount > 0 || newEndCount > 0;
@@ -181,7 +197,7 @@ ${END_MARKER}`;
 }
 
 /**
- * Clears the agentsuit fragment block from CLAUDE.md (if present).
+ * Clears the strongsuit fragment block from CLAUDE.md (if present).
  */
 export function clearFragments(scope: "user" | "project"): void {
   setFragments([], scope, "");

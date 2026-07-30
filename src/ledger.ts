@@ -3,7 +3,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 
 /**
- * Entry in the ownership ledger. Records every key agentsuit has written.
+ * Entry in the ownership ledger. Records every key strongsuit has written.
  */
 export interface LedgerEntry {
   /** Relative or absolute file path */
@@ -21,7 +21,7 @@ export interface LedgerEntry {
 }
 
 /**
- * Persistent ledger tracking all JSON edits made by agentsuit.
+ * Persistent ledger tracking all JSON edits made by strongsuit.
  * Stored at <root>/ledger.json.
  */
 export class Ledger {
