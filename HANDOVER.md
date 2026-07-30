@@ -97,6 +97,20 @@ A mutation that leaves the suite green means the test validates what was written
 what could break. Write the real test or record the gap honestly (see XO-196 for the
 format) — do not ship a test that passes for the wrong reason.
 
+**Never execute a mutation that redirects a path.** Sabotaging `settingsPath()` to use
+`$HOME/.claude` instead of `CLAUDE_HOME` and then running the suite wrote a real file
+into the live config — the mutant did its damage before any test could report it, and
+`test/setup.ts` cannot help because the mutation is the thing bypassing it. Assert those
+guards read-only instead: call the path helper and check the returned string. The same
+applies to any mutation that would make a write escape the sandbox rather than merely
+produce a wrong value.
+
+One more trap that cost a real recovery: `ManagedJson` writes via temp-file + `rename`,
+which **resets the birth timestamp** on APFS. A fresh `stat` birth time is therefore not
+evidence that a file was newly created rather than overwritten. To tell whether a config
+file was clobbered, compare its contents against `~/.claude/settings.json.*backup` and
+`~/.claude/file-history/`, which is where a recoverable copy actually lives.
+
 ### Environment
 
 ```bash

@@ -1,4 +1,6 @@
-# strongsuit
+<p align="center">
+  <img src="assets/logo.png" alt="strongsuit" width="640">
+</p>
 
 **Agentic suits for Claude Code — dress your agent for the occasion.**
 
