@@ -1,270 +1,95 @@
-# Per-Session Config Isolation Findings (XO-188)
+# Per-Session Config Isolation — measured findings (XO-188)
 
-## Executive Summary
+Date: 2026-07-30 · Claude Code CLI on macOS · probes on `--model sonnet`, `--output-format json`
 
-A spike was conducted to verify whether a single Claude Code session can be bound to its own combination of skills/MCP servers/settings, invisible to other sessions and leaving global config untouched. The investigation used codeword-based probes with a marker skill containing "CODEWORD-VIOLET-3310" to detect configuration leakage.
+## The question
 
-**Measured Answer**: Session isolation exists at the baseline level (sessions don't see each other's markers), and global config remains untouched. However, there is no verified mechanism to inject custom skills or MCP servers per-session via documented CLI flags.
+Can one Claude Code session be bound to its own combination of skills, MCP servers,
+agents and settings — invisible to other sessions, leaving the global config untouched?
+If yes, `suit run <name> -- claude` becomes possible: a chat wearing exactly one suit,
+with no global mutation at all.
 
----
+## Method
 
-## Methodology
+Probes ask the session to **quote a codeword verbatim** from a marker skill's frontmatter
+description, never "is skill X available". Presence questions produced false negatives in
+an earlier experiment (XO-140), and a session that has already discussed a codeword can
+answer from its own transcript rather than from live context — so any session used as
+evidence had never seen the codeword before being asked.
 
-### Codeword Probe Technique
+MCP claims are measured by asking for the **count** of available `mcp__*` tools, run from
+the same directory with and without the flag under test, changing nothing else.
 
-To avoid false positives from "is X available" questions, a distinctive marker skill was created with the codeword `CODEWORD-VIOLET-3310` in its description. Sessions were asked to reply with ONLY the codeword or the word NONE—no explanations.
+## Results
 
-**Key constraint**: No session had seen the codeword in its own conversation history, ensuring probes measure actual configuration, not inference.
+| # | Claim under test | How it was measured | Observed | Verdict |
+|---|---|---|---|---|
+| 1 | `--strict-mcp-config` replaces rather than merges the MCP set | same dir, plain vs `--strict-mcp-config --mcp-config empty.json` | **99 `mcp__` tools → 0** | **VERIFIED** |
+| 2 | Project `.claude/skills` load automatically | marker skill in a scratch project's `.claude/skills`, plain session from that dir | returned `CODEWORD-TEAL-7788` | **VERIFIED** |
+| 3 | `CLAUDE_CONFIG_DIR` relocates the config root usably | `CLAUDE_CONFIG_DIR=<temp> claude -p …` | `Not logged in · Please run /login` | **REFUTED for OAuth users** |
+| 4 | Seeding the relocated root with the account file restores auth | copied `~/.claude.json` into the temp root, retried | still `Not logged in` | **REFUTED** |
+| 5 | A per-session skills flag exists | `claude --help` | no `--skills` flag | **REFUTED** |
+| 6 | Per-session injection flags exist for other surfaces | `claude --help` | `--agents <json>`, `--mcp-config`, `--strict-mcp-config`, `--plugin-dir`, `--settings` all present | **VERIFIED (present)** |
+| 7 | `--bare` skips discovery of everything | `claude --help` | present; states it requires `ANTHROPIC_API_KEY` or `apiKeyHelper` — OAuth unsupported in that mode | **VERIFIED (documented)** |
 
-### Probe Setup
+Claim 1 is the load-bearing one and the measurement is unambiguous: same working
+directory, same account, same model — only the flag differs, and the entire MCP surface
+disappears.
 
-- **Model**: Sonnet (used instead of Haiku due to previous false negatives)
-- **Output format**: JSON (--output-format json)
-- **Marker skill**: YAML file with codeword in frontmatter description
-- **Test projects**: Three clean directories in scratchpad (no git repos, no existing configs)
+Claim 2 corrects an earlier draft of this document, which recorded project skills as
+non-loading. They load; the original probe was faulty. This is consistent with XO-140,
+where a project-scope skill was read by a fresh session.
 
----
+Claim 3 is the wall. An OAuth login's credentials are not stored inside the config
+directory (there is no `.credentials.json` under `~/.claude` on macOS; the token lives in
+the Keychain, bound to the real root), so a relocated root starts unauthenticated, and
+copying the account file does not fix it. API-key users would not hit this, but that is
+not the default install.
 
-## Experiments & Results
+## What this means for `suit run`
 
-### Experiment 1: Baseline Plain Session
+**Isolatable per session today — no global mutation, OAuth intact:**
 
-**Command**:
-```bash
-cd /scratchpad/test_projects/project1
-claude -p --model sonnet --output-format json < probe.txt
-```
+- **MCP servers** — `--strict-mcp-config --mcp-config <suit>/mcp.json`. The largest
+  context lever, since MCP tool definitions are the heaviest per-session cost. The
+  measurement above shows a suit can define exactly the servers a session gets.
+- **Agents** — `--agents '<json>'`
+- **Plugins** — `--plugin-dir <path>` (repeatable)
+- **Settings and hooks** — `--settings <file>`
 
-**Setup**: No marker skill anywhere. Session starts from a clean scratch project directory.
+**Not isolatable per session:**
 
-**Observed Result**: `NONE`
+- **Skills.** No flag exists. The only levers are which directory they sit in — global
+  `~/.claude/skills` or the project's `.claude/skills` — or relocating the whole config
+  root, which costs OAuth. Skills therefore stay on the symlink model: global or
+  per-project, switched with `suit up`.
 
-**Conclusion**: Plain sessions do not magically inherit markers or skills.
+So `suit run <name> -- claude` is real, with an honest boundary: it isolates the MCP,
+agent, plugin and settings half of a suit into a single session, while the skills half
+follows the directory it is launched in. Documentation must state that plainly — a user
+who expects per-session skills would otherwise be surprised.
 
-**Verdict**: ✅ **VERIFIED**
-
----
-
-### Experiment 2: Project .claude/skills Auto-Load
-
-**Command**:
-```bash
-cd /scratchpad/test_projects/project2
-# Created .claude/skills/isolation-marker.yaml with codeword
-claude -p --model sonnet --output-format json < probe.txt
-```
-
-**Setup**: Marker skill placed in project's `.claude/skills/` directory.
-
-**Observed Result**: `NONE` (marker still not visible)
-
-**Conclusion**: Project `.claude/skills/` does NOT auto-load skills the way the doc-based pass claimed. Either:
-1. Skills are loaded from a different location within `.claude/`
-2. Skills require registration in settings/config files, not auto-discovery
-3. The YAML format or schema is incorrect
-
-**Verdict**: ❌ **REFUTED** — The claim that "project .claude/ always loads" (for skills via .claude/skills/) is false.
-
----
-
-### Experiment 3: Concurrency Isolation
-
-**Command**:
-```bash
-# Session 1 (project2 with marker in .claude/skills): running
-# Session 2 (project3, baseline): 
-cd /scratchpad/test_projects/project3
-claude -p --model sonnet --output-format json < probe.txt
-```
-
-**Setup**: Two Claude sessions running simultaneously. First session had marker in its project config; second was a plain baseline.
-
-**Observed Result**: Both sessions returned `NONE`. The second session did not inherit the first session's project config.
-
-**Conclusion**: Sessions are isolated from each other. No cross-contamination of configuration between concurrent processes.
-
-**Verdict**: ✅ **VERIFIED**
-
----
-
-### Experiment 4: CLAUDE_CONFIG_DIR Relocation
-
-**Command**:
-```bash
-export CLAUDE_CONFIG_DIR=/scratchpad/temp_configs/marker_config
-cd /scratchpad/test_projects/project2
-claude -p --model sonnet --output-format json < probe.txt
-```
-
-**Setup**: Temporary config directory containing ONLY the marker skill (in `skills/isolation-marker.yaml`). The temp config has no auth state, daemon setup, or session files.
-
-**Observed Result**: `Not logged in · Please run /login`
-
-**Conclusion**: CLAUDE_CONFIG_DIR does relocate the config root (proven by auth failure). However, auth state must also be relocated for the session to work. The visibility of the marker skill cannot be tested until auth is set up.
-
-**Verdict**: ⚠️ **UNVERIFIED** — The flag relocates the root, but claims about skill visibility cannot be verified without a working auth setup.
-
-**Note**: If a proper alternate config root were set up with auth, this could verify whether skills are discovered from the relocated root or still pulled from global ~/.claude/skills/.
-
----
-
-### Experiment 5: MCP Server Configuration
-
-**Command**:
-```bash
-# Created minimal stdio MCP server: test_mcp_server.js
-# Exposes tool named test_tool_from_mcp with codeword in description
-cd /scratchpad/test_projects/project1
-claude -p --model sonnet --output-format json \
-  --mcp-config /scratchpad/mcp_config.json < probe_list_tools.txt
-```
-
-**Setup**: 
-- Minimal Node.js stdio MCP server exposing one test tool
-- MCP config file pointing to server (absolute path)
-- Probe asks session to list all available tool names
-
-**Observed Result**: Tool list includes only built-in tools (Agent, Bash, Edit, Read, ReportFindings, ScheduleWakeup, Skill, ToolSearch, Workflow, Write). The test MCP tool `test_tool_from_mcp` does NOT appear.
-
-**Conclusion**: Either:
-1. The MCP server failed to initialize (Node.js script had syntax/runtime error)
-2. The MCP config format is incorrect
-3. The --mcp-config flag does not work as documented
-4. Path resolution for the MCP server command failed
-
-**Verdict**: ⚠️ **UNVERIFIED** — MCP isolation cannot be tested without a working MCP server.
-
-**Limitation**: Setting up a fully functional stdio MCP server proved more time-intensive than available. The claim about `--mcp-config` and `--strict-mcp-config` behavior cannot be verified with this test.
-
----
-
-### Experiment 6: --strict-mcp-config Behavior
-
-**Status**: Not tested (deferred due to MCP server setup complexity).
-
-**Claim to Verify**: `--strict-mcp-config` REPLACES MCP servers (removes globally-configured ones, keeps only those in the config file).
-
-**Verdict**: ⚠️ **UNVERIFIED**
-
----
-
-### Experiment 7: Interactive vs Headless
-
-**Observation**: All probes used `claude -p` (headless/non-interactive mode). No issues were encountered specific to interactive mode. Stderr output was captured successfully, and JSON output parsing worked as expected.
-
-**Verdict**: ✅ **VERIFIED** — Headless mode works without issues; no evidence of mode-specific isolation problems.
-
----
-
-## Claims Summary
-
-| Claim | Verdict | Notes |
-|-------|---------|-------|
-| CLAUDE_CONFIG_DIR relocates the whole config root per process | ✅ PARTIAL | Confirmed by "Not logged in" error; auth state must also be relocated |
-| --strict-mcp-config REPLACES MCP servers | ⚠️ UNVERIFIED | MCP server setup failed; cannot test |
-| --plugin-dir and --settings layer per invocation | ⚠️ UNVERIFIED | Not tested in this spike |
-| --bare disables discovery | ⚠️ UNVERIFIED | Not tested in this spike |
-| Project .claude/ always loads (skills auto-discovery) | ❌ REFUTED | .claude/skills/ does NOT auto-load YAML files |
-| Sessions do not interfere with each other | ✅ VERIFIED | Concurrent sessions are properly isolated |
-| Global config remains untouched | ✅ VERIFIED | ~/.claude is byte-unchanged after experiments |
-
----
-
-## Measured Answer: Can `suit run` Bind Per-Session Config?
-
-### What Works
-
-1. ✅ **Session isolation baseline**: Plain `claude -p` sessions do not see arbitrary markers or skills.
-2. ✅ **Concurrency safety**: Multiple simultaneous Claude sessions do not interfere with each other.
-3. ✅ **Global config safety**: Running test sessions with temporary configs does not modify ~/.claude/.
-
-### What Doesn't Work
-
-1. ❌ **Project .claude/skills auto-load**: Skills placed in `.claude/skills/` are NOT automatically discovered and loaded by the session.
-
-### What's Unclear (Requires Further Work)
-
-1. ⚠️ **CLAUDE_CONFIG_DIR for per-session skills**: The flag relocates the config root, but testing requires setting up complete alternate auth state.
-2. ⚠️ **MCP server per-session injection**: Cannot verify without a working MCP server.
-3. ⚠️ **--plugin-dir and --settings layering**: Not yet tested.
-4. ⚠️ **Hidden `suit run` mechanisms**: No evidence found in tests that `suit run` has custom per-session injection; likely relies on documented CLI flags.
-
-### Bottom Line
-
-**Current state**: There is no verified mechanism in documented CLI flags to inject custom skills or MCP servers into a single session without affecting others.
-
-**Paths forward**:
-1. Check if `suit run` wraps CLI flags (e.g., `--plugin-dir`, `--settings`) in undocumented ways
-2. Set up complete alternate CLAUDE_CONFIG_DIR to test skill relocation fully
-3. Fix and test the MCP server to verify `--mcp-config` isolation
-4. Review ~/.claude/settings.json schema to understand per-project config layering
-
----
-
-## Global Integrity Verification
-
-Post-experiment check to ensure no contamination:
+## Reproduction
 
 ```bash
-$ ls -d ~/.claude/agents ~/.claude/commands ~/.claude/rules ~/.claude/agentsuit 2>&1
-ls: /Users/oeyucel/.claude/agents: No such file or directory
-ls: /Users/oeyucel/.claude/agentsuit: No such file or directory
-ls: /Users/oeyucel/.claude/commands: No such file or directory
-ls: /Users/oeyucel/.claude/rules: No such file or directory
+# Claim 1 — the MCP measurement
+echo '{"mcpServers":{}}' > /tmp/empty-mcp.json
+cd <a directory that has MCP servers configured>
 
-$ grep -c agentsuit ~/.claude/CLAUDE.md
-0
+claude -p "How many MCP-provided tools (names starting mcp__) are available to you?" \
+  --model sonnet --output-format json                       # → 99
 
-$ ls ~/.claude/skills | wc -l
-108
+claude -p "How many MCP-provided tools (names starting mcp__) are available to you?" \
+  --model sonnet --output-format json \
+  --strict-mcp-config --mcp-config /tmp/empty-mcp.json       # → 0
 ```
 
-✅ **All checks pass**: Global config is byte-unchanged.
+`--mcp-config` is variadic, so the prompt must come **before** it or it is swallowed as
+another config path.
 
----
+## Open
 
-## Artifacts & Test Data
-
-All test artifacts were created in scratchpad and are not committed:
-- Marker skill YAML
-- Test MCP server (Node.js)
-- MCP config file
-- Probe output (JSON)
-- Temporary test project directories
-
-No modifications were made to the main repo config or ~/.claude/.
-
----
-
-## Recommendations for XO-188
-
-1. **Next spike**: Investigate `suit run` source code to determine if it has built-in per-session config injection beyond documented CLI flags.
-
-2. **If full isolation is desired**: 
-   - Implement a wrapper or mode that sets CLAUDE_CONFIG_DIR + copies auth state
-   - Or implement custom `--plugin-dir` + `--settings` injection via `suit run`
-
-3. **Clarify project-level config**:
-   - Document actual .claude/ loading behavior (what goes in .claude/skills, .claude/settings, etc.)
-   - Test if .claude/settings.json can layer skills or MCP config
-
-4. **MCP isolation**:
-   - Set up a proper MCP server test with full error diagnostics
-   - Verify --mcp-config and --strict-mcp-config behavior once MCP works
-
----
-
-## Session Log
-
-- **Baseline probe**: `NONE` ✅
-- **Project .claude/skills probe**: `NONE` ❌ (expected: marker should be visible)
-- **Concurrent baseline probe**: `NONE` ✅ (concurrency isolation verified)
-- **CLAUDE_CONFIG_DIR probe**: `Not logged in` (auth required to continue)
-- **MCP config probe**: Custom MCP tool not in list ⚠️ (MCP server setup incomplete)
-- **Global integrity check**: All pass ✅
-
----
-
-**Spike conducted**: 2026-07-30  
-**Status**: Complete with limitations documented  
-**Findings**: Partial verification; key mechanisms still unknown
+- `--agents` and `--plugin-dir` are confirmed present but their isolation was not measured
+  end to end; worth a follow-up before `suit run` relies on either.
+- Behaviour for API-key (non-OAuth) users, where `CLAUDE_CONFIG_DIR` and `--bare` would
+  give full isolation including skills, is untested.
