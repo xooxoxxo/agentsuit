@@ -20,10 +20,16 @@ export const SUITS_DIR = path.join(AGENTSUIT_DIR, "suits");
 export const SETS_FILE = path.join(AGENTSUIT_DIR, "sets.json");
 
 /**
- * Returns all managed paths under the CLAUDE_HOME root.
+ * Returns all managed paths under the CLAUDE_HOME root for user scope.
  * Used by G3 path-containment guard to verify nothing escapes the temp home.
+ * Project-scoped paths (CWD-relative) are legitimately outside CLAUDE_HOME.
  */
 export function allManagedPaths(scope: "user" | "project"): string[] {
+  if (scope === "project") {
+    // Project-scoped paths are in .claude inside the project, not in CLAUDE_HOME
+    return [];
+  }
+
   const paths = [
     CLAUDE_HOME,
     AGENTSUIT_DIR,
@@ -31,15 +37,16 @@ export function allManagedPaths(scope: "user" | "project"): string[] {
     SUITS_DIR,
     SETS_FILE,
     activeSkillsDir(scope),
-    // CLAUDE.md target for the scope
-    scope === "project"
-      ? path.join(process.cwd(), ".claude", "CLAUDE.md")
-      : path.join(CLAUDE_HOME, "CLAUDE.md"),
+    path.join(CLAUDE_HOME, "CLAUDE.md"),
+    // Artifact type library sections
+    path.join(AGENTSUIT_DIR, "library", "commands"),
+    path.join(AGENTSUIT_DIR, "library", "agents"),
+    path.join(AGENTSUIT_DIR, "library", "rules"),
+    // Artifact type active dirs
+    path.join(CLAUDE_HOME, "commands"),
+    path.join(CLAUDE_HOME, "agents"),
+    path.join(CLAUDE_HOME, "rules"),
   ];
-
-  // TODO: When artifact types (commands, agents, rules) are added,
-  // extend this with their active dirs and library sections.
-  // For now, this covers skills only.
 
   return paths;
 }

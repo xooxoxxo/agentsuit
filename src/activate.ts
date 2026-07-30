@@ -3,13 +3,20 @@ import path from "node:path";
 import { activeSkillsDir } from "./paths.js";
 import { findSkill, listLibrarySkills } from "./library.js";
 import { resolveSafe, lstatOrNull, isInside, immediateTarget, linkDir } from "./fsutil.js";
+import type { ArtifactType } from "./artifact-types.js";
+import { getArtifactType, libraryPathForType } from "./artifact-types.js";
 
 export type Scope = "user" | "project";
 
-function ensureActiveDir(scope: Scope): string {
-  const dir = activeSkillsDir(scope);
+/** Parameterized: ensure active dir for any artifact type */
+function ensureActiveDirFor(artifactType: ArtifactType, scope: Scope): string {
+  const dir = artifactType.activeDirForScope(scope);
   fs.mkdirSync(dir, { recursive: true });
   return dir;
+}
+
+function ensureActiveDir(scope: Scope): string {
+  return ensureActiveDirFor(getArtifactType("skills"), scope);
 }
 
 /** Realpath of the library, needed because macOS resolves /tmp, /var etc. through symlinks. */
@@ -212,4 +219,137 @@ export function initMigrate(scope: Scope, libraryDir: string): InitResult {
   }
 
   return { migrated, adopted, alreadyManaged, broken, conflicts };
+}
+
+/**
+ * Parameterized versions for any artifact type.
+ * These generalize the skill-specific functions above to work with any artifact type.
+ */
+
+/**
+ * Get active entries for any artifact type.
+ * Equivalent to getActiveSkillNames but for any type.
+ */
+export function getActiveEntriesFor(
+  artifactType: ArtifactType,
+  scope: Scope
+): Set<string> {
+  const dir = artifactType.activeDirForScope(scope);
+  const active = new Set<string>();
+
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return active;
+  }
+
+  for (const entry of entries) {
+    // For commands/agents/rules, entries can be .md files or directories
+    if (artifactType.id === "skills") {
+      // Skills are always directories or symlinks
+      if (entry.isSymbolicLink() || entry.isDirectory()) active.add(entry.name);
+    } else {
+      // Commands/agents/rules: accept .md files (without .md extension) or directories
+      if (entry.isDirectory() || entry.isSymbolicLink()) {
+        active.add(entry.name);
+      } else if (entry.name.endsWith(".md")) {
+        active.add(entry.name.slice(0, -3));
+      }
+    }
+  }
+  return active;
+}
+
+/**
+ * Enable an entry for any artifact type (creates symlink or .md file reference).
+ * For now, only symlinks are supported; .md files require library structure.
+ */
+export function enableEntryFor(
+  artifactType: ArtifactType,
+  name: string,
+  scope: Scope,
+  libraryDir: string
+): void {
+  const activeDir = ensureActiveDirFor(artifactType, scope);
+  const libPath = path.join(libraryDir, name);
+  const linkPath = path.join(activeDir, name);
+  const stat = lstatOrNull(linkPath);
+
+  if (stat) {
+    if (stat.isSymbolicLink()) return; // already linked
+    throw new Error(
+      `"${linkPath}" exists and is a real ${stat.isDirectory() ? "directory" : "file"}, not a managed symlink.`
+    );
+  }
+
+  if (!fs.existsSync(libPath)) {
+    throw new Error(`Library entry "${name}" not found at ${libPath}`);
+  }
+
+  linkDir(libPath, linkPath);
+}
+
+/**
+ * Disable an entry for any artifact type (removes symlink).
+ */
+export function disableEntryFor(
+  artifactType: ArtifactType,
+  name: string,
+  scope: Scope
+): void {
+  const activeDir = artifactType.activeDirForScope(scope);
+  const linkPath = path.join(activeDir, name);
+  const stat = lstatOrNull(linkPath);
+  if (!stat) return;
+
+  if (!stat.isSymbolicLink()) {
+    throw new Error(
+      `"${linkPath}" is not a managed symlink. Refusing to delete.`
+    );
+  }
+  fs.unlinkSync(linkPath);
+}
+
+/**
+ * Activate only specified entries for any artifact type.
+ * Clears all managed symlinks, then links exactly the specified names.
+ */
+export function activateOnlyFor(
+  artifactType: ArtifactType,
+  names: string[],
+  scope: Scope,
+  libraryDir: string
+): ActivateResult {
+  const activeDir = ensureActiveDirFor(artifactType, scope);
+  const libReal = libraryReal(libraryDir);
+  const foreign: string[] = [];
+
+  for (const entry of fs.readdirSync(activeDir, { withFileTypes: true })) {
+    if (!entry.isSymbolicLink()) continue;
+    const entryPath = path.join(activeDir, entry.name);
+
+    if (isManagedLink(entryPath, libReal)) {
+      fs.unlinkSync(entryPath);
+    } else {
+      foreign.push(entry.name);
+    }
+  }
+
+  const linked: string[] = [];
+  const skipped: string[] = [];
+
+  for (const name of names) {
+    const libPath = path.join(libraryDir, name);
+    if (!fs.existsSync(libPath)) {
+      skipped.push(name);
+      continue;
+    }
+    const linkPath = path.join(activeDir, name);
+    if (lstatOrNull(linkPath)) continue; // already occupied
+    linkDir(libPath, linkPath);
+    linked.push(name);
+  }
+
+  return { linked, skipped, foreign };
 }
