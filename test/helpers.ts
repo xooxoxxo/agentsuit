@@ -52,8 +52,10 @@ export async function loadModules(tempHome: string) {
   const sets = await import("../src/sets.js");
   const paths = await import("../src/paths.js");
   const migrate = await import("../src/commands/migrate.js");
+  const artifactTypes = await import("../src/artifact-types.js");
+  const claudemd = await import("../src/claudemd.js");
 
-  return { activate, fsutil, library, suits, sets, paths, migrate };
+  return { activate, fsutil, library, suits, sets, paths, migrate, ARTIFACT_TYPES: artifactTypes.ARTIFACT_TYPES, claudemd };
 }
 
 /**
