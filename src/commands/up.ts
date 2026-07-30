@@ -23,6 +23,7 @@ interface JournalEntry {
   previousContent?: string; // For CLAUDE.md: the content before it was written
   jsonPath?: string | string[]; // For json-entry: path to the modified value
   previousValue?: unknown; // For json-entry: the value before modification (or undefined if absent)
+  scope?: Scope; // For json-entry: which scope's ledger owns this write
 }
 
 /** Execution result for a single artifact type. */
@@ -238,11 +239,12 @@ function rollbackJournal(journal: JournalEntry[]): void {
         }
       } else if (entry.type === "json-entry") {
         // Restore the previous JSON state
-        const backupsDir = path.join(path.dirname(entry.path), ".backups");
-        const mg = new ManagedJson(
-          path.join(path.dirname(entry.path), "ledger.json"),
-          backupsDir
-        );
+        // Canonical paths for the scope this entry was written under.
+        // Deriving them from the config file's directory puts the ledger in
+        // the user's home root for user scope, and builds an empty ledger
+        // that owns nothing — so the restore below would silently no-op.
+        const entryScope = entry.scope ?? "user";
+        const mg = new ManagedJson(ledgerPath(entryScope), backupsDir(entryScope));
         if (entry.previousValue !== undefined) {
           mg.setEntries(entry.path, [{ jsonPath: entry.jsonPath!, value: entry.previousValue }], "strongsuit");
         } else {
@@ -309,6 +311,7 @@ async function deactivateMcpServers(
         // Record in journal before removal
         journal.push({
           type: "json-entry",
+          scope,
           path: configPath,
           jsonPath: pathArray,
           previousValue: currentValue,
@@ -350,6 +353,7 @@ async function deactivateMcpServers(
       // Record in journal before removal
       journal.push({
         type: "json-entry",
+        scope,
         path: configPath,
         jsonPath: pathArray,
         previousValue: currentValue,
@@ -431,6 +435,7 @@ async function activateMcpServers(
       // Record in journal for rollback — use actual prior value or undefined if absent
       journal.push({
         type: "json-entry",
+        scope,
         path: configPath,
         jsonPath: serverPath,
         previousValue,
@@ -478,6 +483,7 @@ async function activateMcpServers(
       // Record in journal for rollback — use actual prior value or undefined if absent
       journal.push({
         type: "json-entry",
+        scope,
         path: configPath,
         jsonPath: serverPath,
         previousValue,
