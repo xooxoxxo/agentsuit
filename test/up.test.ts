@@ -351,6 +351,36 @@ More stuff.
       expect(captureFileSnapshot(skillsDir)).toEqual(before);
       expect(fs.readFileSync(claudeMd, "utf-8")).toBe(claudeMdBefore);
     });
+
+    it("up8c: a failure during 'off' restores the links it already removed", async () => {
+      const { paths } = await loadModules(tempHome);
+      const { runOff } = await import("../src/commands/up.js");
+
+      const skillDir = path.join(paths.LIBRARY_DIR, "skill-a");
+      fs.mkdirSync(skillDir, { recursive: true });
+      fs.writeFileSync(path.join(skillDir, "SKILL.md"), "---\nname: skill-a\n---\n");
+
+      const skillsDir = paths.activeSkillsDir("user");
+      fs.mkdirSync(skillsDir, { recursive: true });
+      fs.symlinkSync(skillDir, path.join(skillsDir, "skill-a"), "dir");
+
+      // Clearing CLAUDE.md throws on the malformed block, which lands after
+      // the links have already been unlinked.
+      const claudeMd = path.join(paths.CLAUDE_HOME, "CLAUDE.md");
+      fs.writeFileSync(
+        claudeMd,
+        "# notes\n<!-- strongsuit:begin (do not edit inside) -->\nno end marker\n"
+      );
+
+      const before = captureFileSnapshot(skillsDir);
+      expect(before.has("skill-a")).toBe(true);
+
+      const priorExitCode = process.exitCode;
+      await runOff("user");
+      process.exitCode = priorExitCode;
+
+      expect(captureFileSnapshot(skillsDir)).toEqual(before);
+    });
   });
 
   describe("edge cases", () => {

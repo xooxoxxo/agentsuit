@@ -20,7 +20,22 @@ import {
   pluginConfigPath,
   enabledPluginsPath,
 } from "../plugin.js";
+import {
+  validateHook,
+  approveHooks,
+  activateHooks,
+  deactivateHooks,
+  disabledNotice,
+  settingsPath,
+  type HookEntry,
+} from "../hooks.js";
 import { ledgerPath, backupsDir } from "../paths.js";
+
+/** Options accepted by `suit up`. */
+export interface UpOptions {
+  /** Waive the per-hook prompt. Every hook command is still printed. */
+  yes?: boolean;
+}
 
 /** Single operation in the journal for rollback. */
 interface JournalEntry {
@@ -93,7 +108,8 @@ function isManagedLink(
 async function activateWithRollback(
   suitName: string,
   scope: Scope,
-  journal: JournalEntry[]
+  journal: JournalEntry[],
+  approvedHooks: HookEntry[] = []
 ): Promise<TypeResult[]> {
   const suit = loadSuit(suitName);
   const results: TypeResult[] = [];
@@ -218,6 +234,18 @@ async function activateWithRollback(
     results.push({
       type: "plugins",
       linked: pluginRefs as string[],
+      removed: [],
+      skipped: [],
+      foreign: [],
+    });
+
+    // Handle hook entries. They were approved before this ran — activation
+    // only writes what a human (or an explicit --yes) already signed off on.
+    writeApprovedHooks(approvedHooks, scope, suitName, journal);
+
+    results.push({
+      type: "hooks",
+      linked: approvedHooks.map((hook) => hook.event),
       removed: [],
       skipped: [],
       foreign: [],
@@ -687,12 +715,79 @@ async function activatePlugins(
   }
 }
 
-export async function runUp(suitName: string, scope: Scope): Promise<void> {
-  const spinner = ora(`Activating suit "${suitName}"...`).start();
+/**
+ * Validates a suit's hooks and puts each one in front of the user.
+ *
+ * Runs before the spinner starts and before anything is written: a hook is
+ * arbitrary code, so nothing about it may be decided while a progress
+ * animation is covering the terminal, and nothing is written until it is
+ * approved.
+ */
+async function approveSuitHooks(
+  suitName: string,
+  options: UpOptions
+): Promise<HookEntry[]> {
+  const specs = loadSuit(suitName).components?.hooks ?? [];
+  if (specs.length === 0) return [];
+
+  const validated = (specs as unknown[]).map((spec) => {
+    try {
+      return validateHook(spec);
+    } catch (err) {
+      throw new Error(
+        `Failed to activate hooks for suit '${suitName}': ${(err as Error).message}`
+      );
+    }
+  });
+
+  return approveHooks(validated, { yes: options.yes });
+}
+
+/** Writes approved hooks through the ledger, journalling every change. */
+function writeApprovedHooks(
+  approved: HookEntry[],
+  scope: Scope,
+  suitName: string,
+  journal: JournalEntry[]
+): void {
+  if (approved.length === 0) return;
+
+  const file = settingsPath(scope);
+  const managed = new ManagedJson(ledgerPath(scope), backupsDir(scope));
+
+  const record = (write: { jsonPath: string[]; previousValue: unknown }) => {
+    journal.push({
+      type: "json-entry",
+      scope,
+      path: file,
+      jsonPath: write.jsonPath,
+      previousValue: write.previousValue,
+    });
+  };
+
+  // Clear what this scope already owns first. Without it, switching from a
+  // suit that hooks PreToolUse to one that only hooks Stop would leave the
+  // old suit's hook running.
+  for (const write of deactivateHooks(scope, managed)) record(write);
+  for (const write of activateHooks(approved, scope, suitName, managed)) record(write);
+
+  const notice = disabledNotice(scope);
+  if (notice) console.log(notice);
+}
+
+export async function runUp(
+  suitName: string,
+  scope: Scope,
+  options: UpOptions = {}
+): Promise<void> {
+  const spinner = ora(`Activating suit "${suitName}"...`);
   const journal: JournalEntry[] = [];
 
   try {
-    const results = await activateWithRollback(suitName, scope, journal);
+    // Approval happens before the spinner so the prompt is not drawn over.
+    const approvedHooks = await approveSuitHooks(suitName, options);
+    spinner.start();
+    const results = await activateWithRollback(suitName, scope, journal, approvedHooks);
 
     // Report per-type summary
     const summaryLines: string[] = [];
@@ -758,17 +853,20 @@ export async function runOff(scope: Scope): Promise<void> {
       const activeResult = activateOnlyFor(type, [], scope, libraryDir);
 
       // Record all links that were removed (for rollback)
-      for (const [entryName, previousTarget] of beforeState) {
+      for (const [entryName, previous] of beforeState) {
         if (
-          previousTarget &&
+          previous &&
           !activeResult.foreign.includes(entryName)
         ) {
-          // This was a managed link that was removed
+          // This was a managed link that was removed. Journal the raw link
+          // text: the captured value is an object, and passing it whole made
+          // the symlink call in rollbackJournal throw into its catch, so
+          // `suit off` could never restore anything it removed.
           const linkPath = path.join(activeDir, entryName);
           journal.push({
             type: "link-removed",
             path: linkPath,
-            previousTarget,
+            previousTarget: previous.raw,
           });
         }
       }
@@ -793,6 +891,18 @@ export async function runOff(scope: Scope): Promise<void> {
 
     // Deactivate plugins
     await deactivatePlugins(scope, journal);
+
+    // Deactivate hooks — only the events this scope's ledger owns
+    const hookManaged = new ManagedJson(ledgerPath(scope), backupsDir(scope));
+    for (const write of deactivateHooks(scope, hookManaged)) {
+      journal.push({
+        type: "json-entry",
+        scope,
+        path: settingsPath(scope),
+        jsonPath: write.jsonPath,
+        previousValue: write.previousValue,
+      });
+    }
 
     spinner.succeed(`All managed entries deactivated (${scope})`);
 
