@@ -320,7 +320,7 @@ describe("activate.ts safety invariants", () => {
       const { sets, paths } = await loadModules(tempHome);
 
       // Write garbage to sets.json
-      fs.mkdirSync(paths.SKILLSETS_DIR, { recursive: true });
+      fs.mkdirSync(paths.AGENTSUIT_DIR, { recursive: true });
       fs.writeFileSync(
         paths.SETS_FILE,
         "{ this is not valid json!!! }{{{}"

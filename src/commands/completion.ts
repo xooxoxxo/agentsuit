@@ -36,11 +36,11 @@ export function runCompletion(shell: string, mode?: string): void {
 }
 
 function bashCompletion(): string {
-  return `# bash completion for skillset
+  return `# bash completion for suit
 # Installation: Add this to ~/.bashrc or ~/.bash_profile:
-#   eval "$(skillset completion bash)"
+#   eval "$(suit completion bash)"
 
-_skillset_completion() {
+_suit_completion() {
   local cur prev words cword
   COMPREPLY=()
   cur="\${COMP_WORDS[COMP_CWORD]}"
@@ -60,23 +60,23 @@ _skillset_completion() {
   case "\$prev" in
     new|use)
       # Complete set names
-      local sets=\$(skillset completion --list-sets 2>/dev/null)
+      local sets=\$(suit completion --list-sets 2>/dev/null)
       COMPREPLY=($(compgen -W "\$sets" -- "\$cur"))
       ;;
     enable|disable)
       # Complete skill names
-      local skills=\$(skillset completion --list-skills 2>/dev/null)
+      local skills=\$(suit completion --list-skills 2>/dev/null)
       COMPREPLY=($(compgen -W "\$skills" -- "\$cur"))
       ;;
     add|remove)
       # Check position: after add/remove comes set, then skill
       if [ \$cword -eq 3 ]; then
         # Third argument is skill name
-        local skills=\$(skillset completion --list-skills 2>/dev/null)
+        local skills=\$(suit completion --list-skills 2>/dev/null)
         COMPREPLY=($(compgen -W "\$skills" -- "\$cur"))
       else
         # Second argument is set name
-        local sets=\$(skillset completion --list-sets 2>/dev/null)
+        local sets=\$(suit completion --list-sets 2>/dev/null)
         COMPREPLY=($(compgen -W "\$sets" -- "\$cur"))
       fi
       ;;
@@ -91,16 +91,16 @@ _skillset_completion() {
   return
 }
 
-complete -o bashdefault -o default -o nospace -F _skillset_completion skillset
+complete -o bashdefault -o default -o nospace -F _suit_completion suit
 `;
 }
 
 function zshCompletion(): string {
-  return `# zsh completion for skillset
+  return `# zsh completion for suit
 # Installation: Add this to ~/.zshrc:
-#   eval "$(skillset completion zsh)"
+#   eval "$(suit completion zsh)"
 
-_skillset_completion() {
+_suit_completion() {
   local -a commands
   commands=(
     'init:Migrate real skill dirs in the active folder into a managed library'
@@ -132,23 +132,23 @@ _skillset_completion() {
       case \${words[2]} in
         use|new)
           # Complete with set names
-          local sets=\$(skillset completion --list-sets 2>/dev/null)
+          local sets=\$(suit completion --list-sets 2>/dev/null)
           _values 'sets' \$(echo "\$sets" | tr '\n' ' ')
           ;;
         enable|disable)
           # Complete with skill names
-          local skills=\$(skillset completion --list-skills 2>/dev/null)
+          local skills=\$(suit completion --list-skills 2>/dev/null)
           _values 'skills' \$(echo "\$skills" | tr '\n' ' ')
           ;;
         add|remove)
           # Check position: second arg is set, third is skill
           if [ \${#words[@]} -eq 4 ]; then
             # Third argument is skill
-            local skills=\$(skillset completion --list-skills 2>/dev/null)
+            local skills=\$(suit completion --list-skills 2>/dev/null)
             _values 'skills' \$(echo "\$skills" | tr '\n' ' ')
           else
             # Second argument is set
-            local sets=\$(skillset completion --list-sets 2>/dev/null)
+            local sets=\$(suit completion --list-sets 2>/dev/null)
             _values 'sets' \$(echo "\$sets" | tr '\n' ' ')
           fi
           ;;
@@ -161,6 +161,6 @@ _skillset_completion() {
   esac
 }
 
-_skillset_completion
+_suit_completion
 `;
 }

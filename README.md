@@ -1,26 +1,26 @@
-# claude-skillsets
+# agentsuit
 
-**Named skill sets for Claude Code — switch context, not config.**
+**Agentic suits for Claude Code — dress your agent for the occasion.**
 
-Claude Code warns when installed skills inflate token usage, and the only remedy is deleting and re-downloading them later. `claude-skillsets` lets you define named sets — `coding`, `marketing`, `legal`, `writing` — and switch between them instantly. Nothing is deleted; switching moves only symlinks and is instantly reversible.
+Claude Code warns when installed skills inflate token usage, and the only remedy is deleting and re-downloading them later. `agentsuit` lets you define named sets — `coding`, `marketing`, `legal`, `writing` — and switch between them instantly. Nothing is deleted; switching moves only symlinks and is instantly reversible.
 
 ## Quick start
 
 For now, clone and link locally:
 ```bash
-git clone https://github.com/oytuneyucel/claude-skillsets
-cd claude-skillsets && npm install && npm run build
-npm link          # gives you the `skillset` command
+git clone https://github.com/oytuneyucel/agentsuit
+cd agentsuit && npm install && npm run build
+npm link          # gives you the `suit` command
 ```
 
 Then initialize your library:
 ```bash
-skillset init                # Move existing skills into the library, replace with symlinks
-skillset new coding          # Define a set interactively
-skillset use coding          # Activate it
+suit init                # Move existing skills into the library, replace with symlinks
+suit new coding          # Define a set interactively
+suit use coding          # Activate it
 ```
 
-**npm publish is imminent** — `npm install -g claude-skillsets` will work once published.
+**Publishing soon** — `npm install -g agentsuit` will work once published.
 
 ## How it works
 
@@ -29,10 +29,10 @@ The trick: Claude Code reads a *directory* and does not care if entries are real
 ```
 ~/.claude/
 ├── skills/                          ← Claude Code reads THIS
-│   ├── docx -> ../skillsets/library/docx
-│   ├── pptx -> ../skillsets/library/pptx
-│   └── xlsx -> ../skillsets/library/xlsx
-└── skillsets/                       ← managed by this CLI
+│   ├── docx -> ../agentsuit/library/docx
+│   ├── pptx -> ../agentsuit/library/pptx
+│   └── xlsx -> ../agentsuit/library/xlsx
+└── agentsuit/                       ← managed by this CLI
     ├── library/                     ← real skill folders live here, always
     │   ├── brand-voice-enforcement/
     │   │   └── SKILL.md
@@ -48,7 +48,7 @@ The **library** holds every skill you own. The **active directory** (what Claude
 ## Before and after
 
 ```
-$ skillset list
+$ suit list
  ✔ brand-voice-enforcement    [manual-only]  Enforce consistent brand voice...  ~42 tok
  ✔ docx                                       Use this skill for Word docs...    ~18 tok
  ✔ legal-bd-sidekick          [manual-only]  Business development sidekick...   ~31 tok
@@ -57,8 +57,8 @@ $ skillset list
 
 5/5 active, ~154 tokens of descriptions loaded.
 
-$ skillset use coding
-$ skillset list
+$ suit use coding
+$ suit list
  ✔ docx                                       Use this skill for Word docs...    ~18 tok
  ✔ pptx                                       Use this skill for PowerPoint...    ~19 tok
  ✔ xlsx                                       Use this skill for Excel...        ~24 tok
@@ -74,22 +74,22 @@ Token counts are **estimates** (SKILL.md bytes / 4), useful for spotting bloated
 
 - **Nothing is deleted.** Skills live in the library forever. Switching sets moves symlinks only.
 - **The library is never touched during a set switch.** Activating a set changes only the active directory (`~/.claude/skills` globally or `./.claude/skills` per project).
-- **Foreign symlinks are left alone.** The tool only removes symlinks it recognises as managed (first hop into the library). Anything else is reported with a nudge to run `skillset init`.
+- **Foreign symlinks are left alone.** The tool only removes symlinks it recognises as managed (first hop into the library). Anything else is reported with a nudge to run `suit init`.
 - **The tool is fully reversible.** An active set can be disabled, re-enabled, or mixed with one-off toggles without side effects.
 
 ## Commands
 
 ```bash
-skillset init                              # One-time: migrate existing skills into the library
-skillset list                              # Show library with on/off + token estimates
-skillset sets                              # List every defined set; mark the currently active one
-skillset new <set>                         # Interactive picker to define or edit a set
-skillset use <set>                         # Activate a set
-skillset enable <skill>                    # Turn on one skill (outside any set)
-skillset disable <skill>                   # Turn off one skill
-skillset add <set> <skill>                 # Add a skill to a set (non-interactive)
-skillset remove <set> <skill>              # Remove a skill from a set
-skillset import <path> [--as <name>]       # Copy a skill into the library
+suit init                              # One-time: migrate existing skills into the library
+suit list                              # Show library with on/off + token estimates
+suit sets                              # List every defined set; mark the currently active one
+suit new <set>                         # Interactive picker to define or edit a set
+suit use <set>                         # Activate a set
+suit enable <skill>                    # Turn on one skill (outside any set)
+suit disable <skill>                   # Turn off one skill
+suit add <set> <skill>                 # Add a skill to a set (non-interactive)
+suit remove <set> <skill>              # Remove a skill from a set
+suit import <path> [--as <name>]       # Copy a skill into the library
 ```
 
 All commands except `new` and `import` accept an optional `--project` flag to target `./.claude/skills` (repo-local) instead of the global `~/.claude/skills`. Define sets once; activate them globally or per project.
@@ -99,6 +99,10 @@ All commands except `new` and `import` accept an optional `--project` flag to ta
 - **New sessions read the current state of `.claude/skills`.** Activating, deactivating, or even editing a skill's description are all visible to a session started afterwards.
 - **Resumed sessions keep the skill context from when they started.** A resumed session replays the conversation prefix — including skills — from session creation time. Live mid-conversation switches are **not** visible to the running session.
 - **Practical guidance:** Switch sets, then start a fresh session. New sessions pick up changes instantly; existing and resumed conversations keep the context they started with.
+
+## Where this is going
+
+Suits will grow to bundle not just skills, but MCP servers, plugins, hooks, commands, and agents alongside a mandatory review pipeline for remote installs. Each suit remains a named, atomically-switchable set — one command to dress your agent for the task at hand. For now: skills only, manual not automatic.
 
 ## Limitations
 

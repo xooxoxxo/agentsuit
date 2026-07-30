@@ -1,4 +1,4 @@
-# claude-skillsets — Project Document
+# agentsuit — Project Document
 
 > Working reference for the release README, website copy, and codebase review.
 > Version: 1.1.0 · Status: functional, tested end to end, not yet published
@@ -32,7 +32,7 @@ directly in `.claude/skills/` — that has been an open feature request
 (anthropics/claude-code#43928). And there is certainly no concept of a *named group* of skills
 you switch between as your work changes.
 
-**claude-skillsets fills that gap.** You define sets — `coding`, `marketing`, `legal`,
+**agentsuit fills that gap.** You define sets — `coding`, `marketing`, `legal`,
 `writing` — and switch between them with one command. Nothing is deleted; switching is
 instant and reversible.
 
@@ -55,10 +55,10 @@ that directory are real folders or symlinks. So:
 ```
 ~/.claude/
 ├── skills/                          ← Claude Code reads THIS
-│   ├── docx -> ../skillsets/library/docx
-│   ├── pptx -> ../skillsets/library/pptx
-│   └── xlsx -> ../skillsets/library/xlsx
-└── skillsets/                       ← managed by this CLI
+│   ├── docx -> ../agentsuit/library/docx
+│   ├── pptx -> ../agentsuit/library/pptx
+│   └── xlsx -> ../agentsuit/library/xlsx
+└── agentsuit/                       ← managed by this CLI
     ├── library/                     ← real skill folders live here, always
     │   ├── brand-voice-enforcement/
     │   │   └── SKILL.md
@@ -93,14 +93,14 @@ Every command that touches active state takes an optional `--project` flag.
 | user (default) | `~/.claude/skills` | — |
 | project | `<cwd>/.claude/skills` | `--project` |
 
-The library and `sets.json` are **shared** — they always live under `~/.claude/skillsets/`.
+The library and `sets.json` are **shared** — they always live under `~/.claude/agentsuit/`.
 Only the active directory differs. This means you define a set once and can activate it
 globally, or per repository, without duplicating anything.
 
 Verified during testing: activating `marketing --project` inside `/tmp/proj` left the global
 `~/.claude/skills` untouched. The two scopes are fully independent.
 
-An escape hatch for testing: `CLAUDE_SKILLSETS_HOME` overrides the `~/.claude` root entirely,
+An escape hatch for testing: `AGENTSUIT_HOME` overrides the `~/.claude` root entirely,
 so the whole tool can be pointed at a throwaway directory. The entire test suite for this
 project ran against `/tmp/fake-claude` and never touched a real installation.
 

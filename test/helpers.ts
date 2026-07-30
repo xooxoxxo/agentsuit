@@ -5,15 +5,15 @@ import { fileURLToPath } from "node:url";
 import { vi } from "vitest";
 
 /**
- * Creates a temporary fake CLAUDE_SKILLSETS_HOME with library and skills fixtures.
+ * Creates a temporary fake AGENTSUIT_HOME with library and skills fixtures.
  * Returns the path; caller is responsible for cleanup (rmSync with recursive: true).
  */
 export function makeTempHome(): string {
   const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "test-claude-"));
 
-  // Create the skillsets structure
-  const skillsetsDir = path.join(tempHome, "skillsets");
-  const libraryDir = path.join(skillsetsDir, "library");
+  // Create the agentsuit structure
+  const agentsuitDir = path.join(tempHome, "agentsuit");
+  const libraryDir = path.join(agentsuitDir, "library");
   fs.mkdirSync(libraryDir, { recursive: true });
 
   // Create 5 dummy skills in the library
@@ -38,11 +38,11 @@ This is a test skill.
 }
 
 /**
- * Dynamically imports modules after setting CLAUDE_SKILLSETS_HOME.
+ * Dynamically imports modules after setting AGENTSUIT_HOME.
  * Must be called after vi.resetModules() to ensure paths.ts reads the new env.
  */
 export async function loadModules(tempHome: string) {
-  process.env.CLAUDE_SKILLSETS_HOME = tempHome;
+  process.env.AGENTSUIT_HOME = tempHome;
 
   // Import all modules fresh with the new env
   const activate = await import("../src/activate.js");

@@ -1,9 +1,9 @@
 import fs from "node:fs";
-import { SETS_FILE, SKILLSETS_DIR } from "./paths.js";
+import { SETS_FILE, AGENTSUIT_DIR } from "./paths.js";
 import type { SetsFile } from "./types.js";
 
 export function loadSets(): SetsFile {
-  fs.mkdirSync(SKILLSETS_DIR, { recursive: true });
+  fs.mkdirSync(AGENTSUIT_DIR, { recursive: true });
   if (!fs.existsSync(SETS_FILE)) return {};
 
   try {
@@ -15,6 +15,6 @@ export function loadSets(): SetsFile {
 }
 
 export function saveSets(sets: SetsFile): void {
-  fs.mkdirSync(SKILLSETS_DIR, { recursive: true });
+  fs.mkdirSync(AGENTSUIT_DIR, { recursive: true });
   fs.writeFileSync(SETS_FILE, JSON.stringify(sets, null, 2) + "\n", "utf8");
 }
