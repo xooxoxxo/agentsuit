@@ -31,11 +31,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/oytuneyucel/claude-skillsets"
+    "url": "https://github.com/xooxoxxo/agentsuit"
   },
-  "homepage": "https://github.com/oytuneyucel/claude-skillsets#readme",
+  "homepage": "https://github.com/xooxoxxo/agentsuit#readme",
   "bugs": {
-    "url": "https://github.com/oytuneyucel/claude-skillsets/issues"
+    "url": "https://github.com/xooxoxxo/agentsuit/issues"
   },
   "keywords": [
     "agentsuit",

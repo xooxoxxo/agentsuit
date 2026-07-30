@@ -8,7 +8,7 @@ Claude Code warns when installed skills inflate token usage, and the only remedy
 
 For now, clone and link locally:
 ```bash
-git clone https://github.com/oytuneyucel/agentsuit
+git clone https://github.com/xooxoxxo/agentsuit
 cd agentsuit && npm install && npm run build
 npm link          # gives you the `suit` command
 ```
