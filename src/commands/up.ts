@@ -13,6 +13,7 @@ import { ARTIFACT_TYPES, libraryPathForType } from "../artifact-types.js";
 import { lstatOrNull, immediateTarget, isInside } from "../fsutil.js";
 import { ManagedJson } from "../managed-json.js";
 import { validateMcpServer, mcpConfigPath, mcpConfigPathForProject } from "../mcp.js";
+import { ledgerPath, backupsDir } from "../paths.js";
 
 /** Single operation in the journal for rollback. */
 interface JournalEntry {
@@ -257,6 +258,7 @@ function rollbackJournal(journal: JournalEntry[]): void {
 /**
  * Deactivates MCP servers that were installed by strongsuit.
  * Removes only the servers recorded in the ledger (not foreign ones).
+ * Preserves disabledMcpServers and other user-defined keys untouched.
  */
 async function deactivateMcpServers(
   scope: Scope,
@@ -267,12 +269,12 @@ async function deactivateMcpServers(
     return;
   }
 
+  const ledger = ledgerPath(scope);
+  const backups = backupsDir(scope);
+
   if (scope === "user") {
     // User scope: read ~/.claude.json and find ledgered entries for this project
-    const ledgerPath = path.join(path.dirname(configPath), "strongsuit", "ledger.json");
-    const backupsDir = path.join(path.dirname(configPath), "strongsuit", ".backups");
-
-    const mg = new ManagedJson(ledgerPath, backupsDir);
+    const mg = new ManagedJson(ledger, backups);
     const ledgerEntries = mg.getLedgerEntries(configPath);
 
     // Find all MCP server entries for this project
@@ -285,7 +287,7 @@ async function deactivateMcpServers(
         // This is one of our MCP servers
         const pathArray = Array.isArray(entry.jsonPath) ? entry.jsonPath : (entry.jsonPath as string).split(".");
 
-        // Read current value for rollback
+        // Read current value for rollback — capture what's actually there
         let currentConfig: unknown = {};
         try {
           const content = fs.readFileSync(configPath, "utf-8");
@@ -312,22 +314,19 @@ async function deactivateMcpServers(
           previousValue: currentValue,
         });
 
-        // Remove the server
+        // Remove the server (only those in the ledger, preserving foreign entries)
         mg.removeEntries(configPath, [pathArray]);
       }
     }
   } else {
     // Project scope: read .mcp.json and deactivate all ledgered servers
-    const ledgerPath = path.join(process.cwd(), ".claude", "strongsuit", "ledger.json");
-    const backupsDir = path.join(process.cwd(), ".claude", "strongsuit", ".backups");
-
-    const mg = new ManagedJson(ledgerPath, backupsDir);
+    const mg = new ManagedJson(ledger, backups);
     const ledgerEntries = mg.getLedgerEntries(configPath);
 
     for (const entry of ledgerEntries) {
       const pathArray = Array.isArray(entry.jsonPath) ? entry.jsonPath : (entry.jsonPath as string).split(".");
 
-      // Read current value for rollback
+      // Read current value for rollback — capture what's actually there
       let currentConfig: unknown = {};
       if (fs.existsSync(configPath)) {
         try {
@@ -356,7 +355,7 @@ async function deactivateMcpServers(
         previousValue: currentValue,
       });
 
-      // Remove the server
+      // Remove the server (only those in the ledger, preserving foreign entries)
       mg.removeEntries(configPath, [pathArray]);
     }
   }
@@ -365,6 +364,7 @@ async function deactivateMcpServers(
 /**
  * Activates MCP servers from a suit manifest.
  * Validates each server and writes to the appropriate config file through the ledger.
+ * For project scope, prints a workspace-trust notice since servers require approval.
  */
 async function activateMcpServers(
   mcpConfigs: unknown[],
@@ -388,13 +388,13 @@ async function activateMcpServers(
   const configPath = mcpConfigPath(scope);
 
   if (scope === "user") {
-    // User scope: write to ~/.claude.json under a per-project key
+    // User scope: write to ~/.claude.json under per-project nesting
     const projectPath = process.cwd();
-    const pathArray = mcpConfigPathForProject(projectPath);
-    const ledgerPath = path.join(path.dirname(configPath), "strongsuit", "ledger.json");
-    const backupsDir = path.join(path.dirname(configPath), "strongsuit", ".backups");
+    const projectNesting = mcpConfigPathForProject(projectPath);
+    const ledger = ledgerPath("user");
+    const backups = backupsDir("user");
 
-    const mg = new ManagedJson(ledgerPath, backupsDir);
+    const mg = new ManagedJson(ledger, backups);
 
     // Read current config to capture previous values for rollback
     let currentConfig: unknown = {};
@@ -407,36 +407,41 @@ async function activateMcpServers(
       }
     }
 
-    // Extract current value at this path for rollback
-    let currentValue = currentConfig;
-    for (const key of pathArray) {
-      if (typeof currentValue === "object" && currentValue !== null) {
-        currentValue = (currentValue as Record<string, unknown>)[key];
-      } else {
-        currentValue = undefined;
-        break;
-      }
-    }
-
-    // Write all servers to the config file
+    // Write all servers to the config file using per-project nesting
     for (const server of validatedServers) {
-      const serverPath = [...pathArray, "servers", server.name];
+      const serverPath = [...projectNesting, "servers", server.name];
+
+      // Capture the actual prior value at this path for rollback
+      let previousValue: unknown = undefined;
+      let current = currentConfig;
+      for (const key of serverPath) {
+        if (typeof current === "object" && current !== null) {
+          current = (current as Record<string, unknown>)[key];
+        } else {
+          previousValue = undefined;
+          break;
+        }
+      }
+      if (current !== undefined) {
+        previousValue = current;
+      }
+
       mg.setEntries(configPath, [{ jsonPath: serverPath, value: server }], suitName);
 
-      // Record in journal for rollback
+      // Record in journal for rollback — use actual prior value or undefined if absent
       journal.push({
         type: "json-entry",
         path: configPath,
         jsonPath: serverPath,
-        previousValue: undefined, // We're adding new servers
+        previousValue,
       });
     }
   } else {
     // Project scope: write to .mcp.json
-    const ledgerPath = path.join(process.cwd(), ".claude", "strongsuit", "ledger.json");
-    const backupsDir = path.join(process.cwd(), ".claude", "strongsuit", ".backups");
+    const ledger = ledgerPath("project");
+    const backups = backupsDir("project");
 
-    const mg = new ManagedJson(ledgerPath, backupsDir);
+    const mg = new ManagedJson(ledger, backups);
 
     // Read current config to capture previous values for rollback
     let currentConfig: unknown = {};
@@ -452,16 +457,39 @@ async function activateMcpServers(
     // Write all servers to the config file
     for (const server of validatedServers) {
       const serverPath = ["mcpServers", server.name];
+
+      // Capture the actual prior value at this path for rollback
+      let previousValue: unknown = undefined;
+      let current = currentConfig;
+      for (const key of serverPath) {
+        if (typeof current === "object" && current !== null) {
+          current = (current as Record<string, unknown>)[key];
+        } else {
+          previousValue = undefined;
+          break;
+        }
+      }
+      if (current !== undefined) {
+        previousValue = current;
+      }
+
       mg.setEntries(configPath, [{ jsonPath: serverPath, value: server }], suitName);
 
-      // Record in journal for rollback
+      // Record in journal for rollback — use actual prior value or undefined if absent
       journal.push({
         type: "json-entry",
         path: configPath,
         jsonPath: serverPath,
-        previousValue: undefined, // We're adding new servers
+        previousValue,
       });
     }
+
+    // Print workspace-trust notice for project scope
+    console.log(
+      chalk.yellow(
+        "⚠️  Project-scope MCP servers require Claude Code trust approval before they take effect."
+      )
+    );
   }
 }
 
