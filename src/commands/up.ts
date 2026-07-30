@@ -33,15 +33,24 @@ interface TypeResult {
  * Captures the current state of an active directory before activation.
  * Records link targets so we can restore them on rollback.
  */
-function captureDirectoryState(dirPath: string): Map<string, string | null> {
-  const state = new Map<string, string | null>();
+interface CapturedLink {
+  /** Exactly what the link held, so rollback can recreate it byte-identically. */
+  raw: string;
+  /** First hop with its parent resolved — used to decide ownership. */
+  resolved: string | null;
+}
+
+function captureDirectoryState(dirPath: string): Map<string, CapturedLink> {
+  const state = new Map<string, CapturedLink>();
   try {
     if (!fs.existsSync(dirPath)) return state;
     for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
       if (entry.isSymbolicLink()) {
         const linkPath = path.join(dirPath, entry.name);
-        const target = immediateTarget(linkPath);
-        state.set(entry.name, target);
+        state.set(entry.name, {
+          raw: fs.readlinkSync(linkPath),
+          resolved: immediateTarget(linkPath),
+        });
       }
     }
   } catch {
@@ -77,7 +86,7 @@ async function activateWithRollback(
   const results: TypeResult[] = [];
 
   // Pre-flight: capture the state of all directories before we start
-  const preflightState = new Map<string, Map<string, string | null>>();
+  const preflightState = new Map<string, Map<string, CapturedLink>>();
   for (const type of Object.values(ARTIFACT_TYPES)) {
     const activeDir = type.activeDirForScope(scope);
     preflightState.set(type.id, captureDirectoryState(activeDir));
@@ -118,22 +127,24 @@ async function activateWithRollback(
         });
       }
 
-      // Record all links that were removed (for rollback)
-      for (const [entryName, previousTarget] of beforeState) {
+      // Record all links that were removed (for rollback).
+      // Ownership is decided from the pre-flight target, not by probing the
+      // path: activateOnlyFor has already deleted these links, so an lstat
+      // would report "not managed" and the removal would never be journaled —
+      // leaving rollback with nothing to restore.
+      for (const [entryName, previous] of beforeState) {
         const linkPath = path.join(activeDir, entryName);
-        // If the entry was in the before-state and is not in the linked results,
-        // and was a managed link, then it was removed
         if (
           !activeResult.linked.includes(entryName) &&
           !activeResult.foreign.includes(entryName) &&
-          previousTarget &&
-          isManagedLink(linkPath, libReal)
+          previous.resolved &&
+          isInside(previous.resolved, libReal)
         ) {
           // It was removed, record it for rollback
           journal.push({
             type: "link-removed",
             path: linkPath,
-            previousTarget,
+            previousTarget: previous.raw,
           });
         }
       }
@@ -262,7 +273,7 @@ export async function runOff(scope: Scope): Promise<void> {
 
   try {
     // Pre-flight: capture the state of all directories
-    const preflightState = new Map<string, Map<string, string | null>>();
+    const preflightState = new Map<string, Map<string, CapturedLink>>();
     for (const type of Object.values(ARTIFACT_TYPES)) {
       const activeDir = type.activeDirForScope(scope);
       preflightState.set(type.id, captureDirectoryState(activeDir));

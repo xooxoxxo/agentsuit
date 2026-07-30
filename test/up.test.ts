@@ -302,6 +302,55 @@ More stuff.
       // The second activation should not change anything
       expect(afterSecondSnapshot).toEqual(afterFirstSnapshot);
     });
+
+    it("up8b: a failure mid-switch restores every managed path", async () => {
+      const { paths, suits } = await loadModules(tempHome);
+      const { runUp } = await import("../src/commands/up.js");
+
+      for (const skillName of ["skill-a", "skill-b"]) {
+        const skillDir = path.join(paths.LIBRARY_DIR, skillName);
+        fs.mkdirSync(skillDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(skillDir, "SKILL.md"),
+          `---\nname: ${skillName}\n---\n`
+        );
+      }
+
+      // Baseline: skill-a active, skill-b not.
+      const skillsDir = paths.activeSkillsDir("user");
+      fs.mkdirSync(skillsDir, { recursive: true });
+      fs.symlinkSync(
+        path.join(paths.LIBRARY_DIR, "skill-a"),
+        path.join(skillsDir, "skill-a"),
+        "dir"
+      );
+
+      // A suit that swaps to skill-b and then touches CLAUDE.md. The CLAUDE.md
+      // step throws on a malformed marker block, which lands *after* the skill
+      // links have already been rewritten — the exact partial state rollback
+      // exists to undo.
+      suits.saveSuit({
+        name: "broken",
+        components: { skills: ["skill-b"], claudemd: ["frag"] },
+      });
+
+      const claudeMd = path.join(paths.CLAUDE_HOME, "CLAUDE.md");
+      const claudeMdBefore =
+        "# notes\n<!-- agentsuit:begin (do not edit inside) -->\nno end marker\n";
+      fs.writeFileSync(claudeMd, claudeMdBefore);
+
+      const before = captureFileSnapshot(skillsDir);
+      expect(before.has("skill-a")).toBe(true);
+
+      const priorExitCode = process.exitCode;
+      await runUp("broken", "user");
+      process.exitCode = priorExitCode;
+
+      // Every managed path is back where it started: skill-b was never left
+      // linked, skill-a was not left removed, CLAUDE.md untouched.
+      expect(captureFileSnapshot(skillsDir)).toEqual(before);
+      expect(fs.readFileSync(claudeMd, "utf-8")).toBe(claudeMdBefore);
+    });
   });
 
   describe("edge cases", () => {
