@@ -105,6 +105,18 @@ guards read-only instead: call the path helper and check the returned string. Th
 applies to any mutation that would make a write escape the sandbox rather than merely
 produce a wrong value.
 
+**A mutation harness needs a trustworthy oracle.** Two ways a scripted harness
+reports a kill that never happened, both hit on XO-181:
+
+- Deciding "killed" from the *absence* of a success string. `grep -q "FAIL (0)"`
+  reported every mutant as killed the moment the output format changed. Decide from
+  the *presence* of a named failing test instead, and print the name — an empty name
+  column means you have not verified anything.
+- A `perl -0pi -e 's/.../.../'` pattern that matches an earlier function too. One
+  mutation aimed at `deactivatePlugins` landed in `deactivateMcpServers`, so the code
+  under test was never touched. Anchor the pattern on something unique to the target
+  and confirm with `git diff --stat` that the edit landed where you meant.
+
 One more trap that cost a real recovery: `ManagedJson` writes via temp-file + `rename`,
 which **resets the birth timestamp** on APFS. A fresh `stat` birth time is therefore not
 evidence that a file was newly created rather than overwritten. To tell whether a config
