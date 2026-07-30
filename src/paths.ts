@@ -19,3 +19,15 @@ export const LIBRARY_DIR = path.join(STRONGSUIT_DIR, "library");
 export const SUITS_DIR = path.join(STRONGSUIT_DIR, "suits");
 export const SETS_FILE = path.join(STRONGSUIT_DIR, "sets.json");
 
+/** Ledger path for tracking MCP server and other managed JSON writes. */
+export function ledgerPath(scope: "user" | "project"): string {
+  const root = scope === "user" ? STRONGSUIT_DIR : path.join(process.cwd(), ".claude", "strongsuit");
+  return path.join(root, "ledger.json");
+}
+
+/** Backups directory for managed JSON files. */
+export function backupsDir(scope: "user" | "project"): string {
+  const root = scope === "user" ? STRONGSUIT_DIR : path.join(process.cwd(), ".claude", "strongsuit");
+  return path.join(root, "backups");
+}
+

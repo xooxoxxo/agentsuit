@@ -5,6 +5,8 @@ import {
   LIBRARY_DIR,
   SUITS_DIR,
   SETS_FILE,
+  ledgerPath,
+  backupsDir,
 } from "./paths.js";
 import { ARTIFACT_TYPES, libraryPathForType } from "./artifact-types.js";
 import { claudeMdPath } from "./claudemd.js";
@@ -23,9 +25,13 @@ export function allManagedPaths(scope: "user" | "project"): string[] {
 
   if (scope === "user") {
     paths.push(CLAUDE_HOME, STRONGSUIT_DIR, LIBRARY_DIR, SUITS_DIR, SETS_FILE);
-    // Ledger and backups for managed JSON config surfaces
-    paths.push(path.join(STRONGSUIT_DIR, "ledger.json"));
-    paths.push(path.join(STRONGSUIT_DIR, "backups"));
+    // Ledger and backups for managed JSON config surfaces — derived from paths.ts
+    paths.push(ledgerPath("user"));
+    paths.push(backupsDir("user"));
+  } else {
+    // Project scope also has ledger and backups
+    paths.push(ledgerPath("project"));
+    paths.push(backupsDir("project"));
   }
 
   for (const type of Object.values(ARTIFACT_TYPES)) {
