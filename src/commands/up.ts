@@ -11,13 +11,17 @@ import {
 import { setFragments, claudeMdPath } from "../claudemd.js";
 import { ARTIFACT_TYPES, libraryPathForType } from "../artifact-types.js";
 import { lstatOrNull, immediateTarget, isInside } from "../fsutil.js";
+import { ManagedJson } from "../managed-json.js";
+import { validateMcpServer, mcpConfigPath, mcpConfigPathForProject } from "../mcp.js";
 
 /** Single operation in the journal for rollback. */
 interface JournalEntry {
-  type: "link-created" | "link-removed" | "claudemd-written";
+  type: "link-created" | "link-removed" | "claudemd-written" | "json-entry";
   path: string;
   previousTarget?: string; // For links: the target they pointed to before removal
   previousContent?: string; // For CLAUDE.md: the content before it was written
+  jsonPath?: string | string[]; // For json-entry: path to the modified value
+  previousValue?: unknown; // For json-entry: the value before modification (or undefined if absent)
 }
 
 /** Execution result for a single artifact type. */
@@ -180,6 +184,21 @@ async function activateWithRollback(
       foreign: [],
     });
 
+    // Handle MCP server entries
+    const mcpConfigs = suit.components?.mcp ?? [];
+    await activateMcpServers(mcpConfigs, scope, suitName, journal);
+
+    results.push({
+      type: "mcp",
+      linked: mcpConfigs.map((cfg: unknown) => {
+        const c = cfg as Record<string, unknown>;
+        return (c.name as string) || "";
+      }),
+      removed: [],
+      skipped: [],
+      foreign: [],
+    });
+
     return results;
   } catch (err) {
     // Rollback: reverse the journal in LIFO order
@@ -216,9 +235,232 @@ function rollbackJournal(journal: JournalEntry[]): void {
           // There was no previous content, so delete the file
           fs.unlinkSync(entry.path);
         }
+      } else if (entry.type === "json-entry") {
+        // Restore the previous JSON state
+        const backupsDir = path.join(path.dirname(entry.path), ".backups");
+        const mg = new ManagedJson(
+          path.join(path.dirname(entry.path), "ledger.json"),
+          backupsDir
+        );
+        if (entry.previousValue !== undefined) {
+          mg.setEntries(entry.path, [{ jsonPath: entry.jsonPath!, value: entry.previousValue }], "strongsuit");
+        } else {
+          mg.removeEntries(entry.path, [entry.jsonPath!]);
+        }
       }
     } catch {
       // Rollback best-effort: continue with the rest even if one rollback fails
+    }
+  }
+}
+
+/**
+ * Deactivates MCP servers that were installed by strongsuit.
+ * Removes only the servers recorded in the ledger (not foreign ones).
+ */
+async function deactivateMcpServers(
+  scope: Scope,
+  journal: JournalEntry[]
+): Promise<void> {
+  const configPath = mcpConfigPath(scope);
+  if (!fs.existsSync(configPath)) {
+    return;
+  }
+
+  if (scope === "user") {
+    // User scope: read ~/.claude.json and find ledgered entries for this project
+    const ledgerPath = path.join(path.dirname(configPath), "strongsuit", "ledger.json");
+    const backupsDir = path.join(path.dirname(configPath), "strongsuit", ".backups");
+
+    const mg = new ManagedJson(ledgerPath, backupsDir);
+    const ledgerEntries = mg.getLedgerEntries(configPath);
+
+    // Find all MCP server entries for this project
+    const projectPath = process.cwd();
+    const pathPrefix = mcpConfigPathForProject(projectPath).join(".");
+
+    for (const entry of ledgerEntries) {
+      const entryPath = Array.isArray(entry.jsonPath) ? entry.jsonPath.join(".") : entry.jsonPath;
+      if (entryPath.startsWith(pathPrefix + ".servers.")) {
+        // This is one of our MCP servers
+        const pathArray = Array.isArray(entry.jsonPath) ? entry.jsonPath : (entry.jsonPath as string).split(".");
+
+        // Read current value for rollback
+        let currentConfig: unknown = {};
+        try {
+          const content = fs.readFileSync(configPath, "utf-8");
+          currentConfig = JSON.parse(content);
+        } catch {
+          currentConfig = {};
+        }
+
+        let currentValue = currentConfig;
+        for (const key of pathArray) {
+          if (typeof currentValue === "object" && currentValue !== null) {
+            currentValue = (currentValue as Record<string, unknown>)[key];
+          } else {
+            currentValue = undefined;
+            break;
+          }
+        }
+
+        // Record in journal before removal
+        journal.push({
+          type: "json-entry",
+          path: configPath,
+          jsonPath: pathArray,
+          previousValue: currentValue,
+        });
+
+        // Remove the server
+        mg.removeEntries(configPath, [pathArray]);
+      }
+    }
+  } else {
+    // Project scope: read .mcp.json and deactivate all ledgered servers
+    const ledgerPath = path.join(process.cwd(), ".claude", "strongsuit", "ledger.json");
+    const backupsDir = path.join(process.cwd(), ".claude", "strongsuit", ".backups");
+
+    const mg = new ManagedJson(ledgerPath, backupsDir);
+    const ledgerEntries = mg.getLedgerEntries(configPath);
+
+    for (const entry of ledgerEntries) {
+      const pathArray = Array.isArray(entry.jsonPath) ? entry.jsonPath : (entry.jsonPath as string).split(".");
+
+      // Read current value for rollback
+      let currentConfig: unknown = {};
+      if (fs.existsSync(configPath)) {
+        try {
+          const content = fs.readFileSync(configPath, "utf-8");
+          currentConfig = JSON.parse(content);
+        } catch {
+          currentConfig = {};
+        }
+      }
+
+      let currentValue = currentConfig;
+      for (const key of pathArray) {
+        if (typeof currentValue === "object" && currentValue !== null) {
+          currentValue = (currentValue as Record<string, unknown>)[key];
+        } else {
+          currentValue = undefined;
+          break;
+        }
+      }
+
+      // Record in journal before removal
+      journal.push({
+        type: "json-entry",
+        path: configPath,
+        jsonPath: pathArray,
+        previousValue: currentValue,
+      });
+
+      // Remove the server
+      mg.removeEntries(configPath, [pathArray]);
+    }
+  }
+}
+
+/**
+ * Activates MCP servers from a suit manifest.
+ * Validates each server and writes to the appropriate config file through the ledger.
+ */
+async function activateMcpServers(
+  mcpConfigs: unknown[],
+  scope: Scope,
+  suitName: string,
+  journal: JournalEntry[]
+): Promise<void> {
+  if (mcpConfigs.length === 0) {
+    return;
+  }
+
+  // Validate all servers first
+  const validatedServers = mcpConfigs.map((cfg) => {
+    try {
+      return validateMcpServer(cfg);
+    } catch (err) {
+      throw new Error(`Failed to activate MCP servers for suit '${suitName}': ${(err as Error).message}`);
+    }
+  });
+
+  const configPath = mcpConfigPath(scope);
+
+  if (scope === "user") {
+    // User scope: write to ~/.claude.json under a per-project key
+    const projectPath = process.cwd();
+    const pathArray = mcpConfigPathForProject(projectPath);
+    const ledgerPath = path.join(path.dirname(configPath), "strongsuit", "ledger.json");
+    const backupsDir = path.join(path.dirname(configPath), "strongsuit", ".backups");
+
+    const mg = new ManagedJson(ledgerPath, backupsDir);
+
+    // Read current config to capture previous values for rollback
+    let currentConfig: unknown = {};
+    if (fs.existsSync(configPath)) {
+      try {
+        const content = fs.readFileSync(configPath, "utf-8");
+        currentConfig = JSON.parse(content);
+      } catch {
+        currentConfig = {};
+      }
+    }
+
+    // Extract current value at this path for rollback
+    let currentValue = currentConfig;
+    for (const key of pathArray) {
+      if (typeof currentValue === "object" && currentValue !== null) {
+        currentValue = (currentValue as Record<string, unknown>)[key];
+      } else {
+        currentValue = undefined;
+        break;
+      }
+    }
+
+    // Write all servers to the config file
+    for (const server of validatedServers) {
+      const serverPath = [...pathArray, "servers", server.name];
+      mg.setEntries(configPath, [{ jsonPath: serverPath, value: server }], suitName);
+
+      // Record in journal for rollback
+      journal.push({
+        type: "json-entry",
+        path: configPath,
+        jsonPath: serverPath,
+        previousValue: undefined, // We're adding new servers
+      });
+    }
+  } else {
+    // Project scope: write to .mcp.json
+    const ledgerPath = path.join(process.cwd(), ".claude", "strongsuit", "ledger.json");
+    const backupsDir = path.join(process.cwd(), ".claude", "strongsuit", ".backups");
+
+    const mg = new ManagedJson(ledgerPath, backupsDir);
+
+    // Read current config to capture previous values for rollback
+    let currentConfig: unknown = {};
+    if (fs.existsSync(configPath)) {
+      try {
+        const content = fs.readFileSync(configPath, "utf-8");
+        currentConfig = JSON.parse(content);
+      } catch {
+        currentConfig = {};
+      }
+    }
+
+    // Write all servers to the config file
+    for (const server of validatedServers) {
+      const serverPath = ["mcpServers", server.name];
+      mg.setEntries(configPath, [{ jsonPath: serverPath, value: server }], suitName);
+
+      // Record in journal for rollback
+      journal.push({
+        type: "json-entry",
+        path: configPath,
+        jsonPath: serverPath,
+        previousValue: undefined, // We're adding new servers
+      });
     }
   }
 }
@@ -320,6 +562,9 @@ export async function runOff(scope: Scope): Promise<void> {
       path: claudeMdFile,
       previousContent,
     });
+
+    // Deactivate MCP servers
+    await deactivateMcpServers(scope, journal);
 
     spinner.succeed(`All managed entries deactivated (${scope})`);
 
