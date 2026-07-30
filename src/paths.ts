@@ -18,3 +18,4 @@ export const AGENTSUIT_DIR = path.join(CLAUDE_HOME, "agentsuit");
 export const LIBRARY_DIR = path.join(AGENTSUIT_DIR, "library");
 export const SUITS_DIR = path.join(AGENTSUIT_DIR, "suits");
 export const SETS_FILE = path.join(AGENTSUIT_DIR, "sets.json");
+
