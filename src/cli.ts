@@ -9,6 +9,7 @@ import { runEnable, runDisable } from "./commands/toggle.js";
 import { runInit } from "./commands/init.js";
 import { runAdd, runRemove, runImport } from "./commands/add-remove.js";
 import { runCompletion } from "./commands/completion.js";
+import { runMigrate } from "./commands/migrate.js";
 import type { Scope } from "./activate.js";
 
 const cli = meow(
@@ -17,6 +18,7 @@ const cli = meow(
     $ suit <command> [args] [--project]
 
   ${chalk.bold("Commands")}
+    migrate                     Relocate legacy ~/.claude/skillsets to ~/.claude/agentsuit
     init                        Migrate real skill dirs in the active folder into a managed library
     list                        Show every skill in the library and whether it's active
     sets                        Show defined sets and which one (if any) is active
@@ -61,6 +63,9 @@ function requireArg(value: string | undefined, label: string): asserts value is 
 
 async function main(): Promise<void> {
   switch (command) {
+    case "migrate":
+      runMigrate();
+      break;
     case "init":
       runInit(scope);
       break;
