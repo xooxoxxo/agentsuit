@@ -13,6 +13,7 @@ import { ARTIFACT_TYPES, libraryPathForType } from "../artifact-types.js";
 import { lstatOrNull, immediateTarget, isInside } from "../fsutil.js";
 import { ManagedJson } from "../managed-json.js";
 import { validateMcpServer, mcpConfigPath, mcpConfigPathForProject } from "../mcp.js";
+import { parsePluginRef, pluginConfigPath, enabledPluginsPath } from "../plugin.js";
 import { ledgerPath, backupsDir } from "../paths.js";
 
 /** Single operation in the journal for rollback. */
@@ -196,6 +197,18 @@ async function activateWithRollback(
         const c = cfg as Record<string, unknown>;
         return (c.name as string) || "";
       }),
+      removed: [],
+      skipped: [],
+      foreign: [],
+    });
+
+    // Handle plugin entries
+    const pluginRefs = suit.components?.plugins ?? [];
+    await activatePlugins(pluginRefs, scope, suitName, journal);
+
+    results.push({
+      type: "plugins",
+      linked: pluginRefs as string[],
       removed: [],
       skipped: [],
       foreign: [],
@@ -499,6 +512,154 @@ async function activateMcpServers(
   }
 }
 
+/**
+ * Deactivates plugins that were installed by strongsuit.
+ * Removes only the plugins recorded in the ledger (not foreign ones).
+ */
+async function deactivatePlugins(
+  scope: Scope,
+  journal: JournalEntry[]
+): Promise<void> {
+  const configPath = pluginConfigPath(scope);
+  if (!fs.existsSync(configPath)) {
+    return;
+  }
+
+  const ledger = ledgerPath(scope);
+  const backups = backupsDir(scope);
+
+  const mg = new ManagedJson(ledger, backups);
+  const ledgerEntries = mg.getLedgerEntries(configPath);
+  const pluginPath = enabledPluginsPath();
+
+  // Find all plugin entries in the ledger for this config file
+  for (const entry of ledgerEntries) {
+    const entryPath = Array.isArray(entry.jsonPath) ? entry.jsonPath : (entry.jsonPath as string).split(".");
+
+    // Check if this is an enabledPlugins entry
+    if (
+      entryPath.length >= 2 &&
+      entryPath[0] === "enabledPlugins"
+    ) {
+      // Read current value for rollback
+      let currentConfig: unknown = {};
+      if (fs.existsSync(configPath)) {
+        try {
+          const content = fs.readFileSync(configPath, "utf-8");
+          currentConfig = JSON.parse(content);
+        } catch {
+          currentConfig = {};
+        }
+      }
+
+      let currentValue: unknown = currentConfig;
+      for (const key of entryPath) {
+        if (typeof currentValue === "object" && currentValue !== null) {
+          currentValue = (currentValue as Record<string, unknown>)[key];
+        } else {
+          currentValue = undefined;
+          break;
+        }
+      }
+
+      // Record in journal before removal
+      journal.push({
+        type: "json-entry",
+        scope,
+        path: configPath,
+        jsonPath: entryPath,
+        previousValue: currentValue,
+      });
+
+      // Remove the plugin entry (only those in the ledger, preserving foreign entries)
+      mg.removeEntries(configPath, [entryPath]);
+    }
+  }
+}
+
+/**
+ * Activates plugins from a suit manifest.
+ * Validates each plugin reference and writes to enabledPlugins through the ledger.
+ */
+async function activatePlugins(
+  pluginRefs: unknown[],
+  scope: Scope,
+  suitName: string,
+  journal: JournalEntry[]
+): Promise<void> {
+  if (pluginRefs.length === 0) {
+    return;
+  }
+
+  // Validate all plugin references first
+  const validatedPlugins = pluginRefs.map((ref, idx) => {
+    try {
+      return parsePluginRef(ref);
+    } catch (err) {
+      throw new Error(
+        `Failed to activate plugins for suit '${suitName}': ${(err as Error).message}`
+      );
+    }
+  });
+
+  const configPath = pluginConfigPath(scope);
+  const ledger = ledgerPath(scope);
+  const backups = backupsDir(scope);
+
+  // Ensure directories exist
+  fs.mkdirSync(path.dirname(configPath), { recursive: true });
+
+  const mg = new ManagedJson(ledger, backups);
+
+  // Read current config to capture previous values for rollback
+  let currentConfig: unknown = {};
+  if (fs.existsSync(configPath)) {
+    try {
+      const content = fs.readFileSync(configPath, "utf-8");
+      currentConfig = JSON.parse(content);
+    } catch {
+      currentConfig = {};
+    }
+  }
+
+  // enabledPlugins is an array in settings.json
+  // Each plugin is a string entry like "plugin@marketplace"
+  const pluginsPath = enabledPluginsPath();
+
+  for (const plugin of validatedPlugins) {
+    // Each plugin entry is stored at ["enabledPlugins", index, plugin.fullRef]
+    // But since we're managing individual entries in a managed way, store by full ref
+    const entryPath = [...pluginsPath, plugin.fullRef];
+
+    // Capture the actual prior value at this path for rollback
+    let previousValue: unknown = undefined;
+    let current = currentConfig;
+    for (const key of entryPath) {
+      if (typeof current === "object" && current !== null) {
+        current = (current as Record<string, unknown>)[key];
+      } else {
+        previousValue = undefined;
+        break;
+      }
+    }
+    if (current !== undefined) {
+      previousValue = current;
+    }
+
+    // Mark this plugin as enabled
+    mg.setEntries(configPath, [{ jsonPath: entryPath, value: true }], suitName);
+
+    // Record in journal for rollback
+    journal.push({
+      type: "json-entry",
+      scope,
+      path: configPath,
+      jsonPath: entryPath,
+      previousValue,
+    });
+  }
+}
+
 export async function runUp(suitName: string, scope: Scope): Promise<void> {
   const spinner = ora(`Activating suit "${suitName}"...`).start();
   const journal: JournalEntry[] = [];
@@ -599,6 +760,9 @@ export async function runOff(scope: Scope): Promise<void> {
 
     // Deactivate MCP servers
     await deactivateMcpServers(scope, journal);
+
+    // Deactivate plugins
+    await deactivatePlugins(scope, journal);
 
     spinner.succeed(`All managed entries deactivated (${scope})`);
 

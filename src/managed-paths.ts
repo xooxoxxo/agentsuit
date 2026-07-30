@@ -10,6 +10,7 @@ import {
 } from "./paths.js";
 import { ARTIFACT_TYPES, libraryPathForType } from "./artifact-types.js";
 import { claudeMdPath } from "./claudemd.js";
+import { pluginConfigPath } from "./plugin.js";
 
 /**
  * Every filesystem location the tool may read or write for a scope.
@@ -40,6 +41,8 @@ export function allManagedPaths(scope: "user" | "project"): string[] {
   }
 
   paths.push(claudeMdPath(scope));
+  // Plugin config paths (settings.json) for managed enabledPlugins entries
+  paths.push(pluginConfigPath(scope));
 
   return paths;
 }
