@@ -34,7 +34,7 @@ The `components` field is an object that groups different types of resources. Al
 | `rules` | string[] | List of rule references (forward-compat). |
 | `claudemd` | string[] | List of CLAUDE.md file paths (forward-compat). |
 | `mcp` | object[] | List of MCP server configurations (forward-compat). |
-| `plugins` | string[] | List of plugin references (forward-compat). |
+| `plugins` | (string \| object)[] | `"plugin@marketplace"`, or `{ref, marketplace}` to name the marketplace source. |
 | `hooks` | object[] | List of hook configurations (forward-compat). |
 
 Unknown component fields are rejected with a validation error naming the field and the manifest file.
@@ -73,7 +73,9 @@ components:
       config: {}
 
   plugins:
-    - vscode-integration
+    - superpowers@claude-plugins-official
+    - ref: caveman@caveman
+      marketplace: JuliusBrussee/caveman
 
   hooks:
     - event: activate
@@ -104,9 +106,9 @@ components:
 
 ## Current Implementation
 
-**Consumed by CLI:** Only the `components.skills` field is currently consumed by agentsuit. It maps skills to the library for activation.
+**Consumed by CLI:** `components.skills`, `commands`, `agents`, `rules`, `claudemd`, `mcp` and `plugins` are activated by `suit up`.
 
-**Forward-compatible:** The `components.commands`, `components.agents`, `components.rules`, `components.claudemd`, `components.mcp`, `components.plugins`, and `components.hooks` fields are validated but not yet activated. They are reserved for future expansion.
+**Forward-compatible:** `components.hooks` is validated but not yet activated (XO-182).
 
 When these features are implemented, existing manifests will work without modification.
 
