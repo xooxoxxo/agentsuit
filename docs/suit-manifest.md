@@ -116,10 +116,13 @@ Hooks are the only component that executes arbitrary code, so they carry rules
 the others do not:
 
 - **Every hook command is printed in full before activation.** `--yes` waives
-  the per-hook prompt, not the disclosure.
+  the prompt, not the disclosure.
 - **Approval is never bulk.** Interactively, each hook is confirmed on its own
   and declining one skips only that hook. With no TTY and no `--yes`,
   `suit up` refuses rather than activating anything unseen.
+- **`--yes` does not approve a hook.** Hooks are RED in the review engine, so
+  `--yes` leaves them out and lists what it skipped; accepting them takes the
+  separate `--approve-code-execution` flag. See `docs/review.md`.
 - **Ownership is per event, not per hook.** `hooks.<Event>` in settings is an
   array and the ledger hashes whole values, so strongsuit either owns an event
   or leaves it alone. Activating into an event that already holds hooks it did
