@@ -97,7 +97,13 @@ A mutation that leaves the suite green means the test validates what was written
 what could break. Write the real test or record the gap honestly (see XO-196 for the
 format) — do not ship a test that passes for the wrong reason.
 
-**Never execute a mutation that redirects a path.** Sabotaging `settingsPath()` to use
+**Never execute a mutation that redirects a path.** This happened twice — the second
+time after the rule was already written here, by re-running a harness that still
+contained the mutant. Delete such mutants from the harness rather than remembering not
+to run it. The durable fix is that `settingsPath()` is now enumerated in
+`allManagedPaths()`, so G3 catches an escaping settings path with a read-only assertion
+and no mutation is needed at all.
+ Sabotaging `settingsPath()` to use
 `$HOME/.claude` instead of `CLAUDE_HOME` and then running the suite wrote a real file
 into the live config — the mutant did its damage before any test could report it, and
 `test/setup.ts` cannot help because the mutation is the thing bypassing it. Assert those

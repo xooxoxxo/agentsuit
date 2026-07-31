@@ -11,6 +11,7 @@ import {
 import { ARTIFACT_TYPES, libraryPathForType } from "./artifact-types.js";
 import { claudeMdPath } from "./claudemd.js";
 import { pluginConfigPath } from "./plugin.js";
+import { settingsPath } from "./hooks.js";
 
 /**
  * Every filesystem location the tool may read or write for a scope.
@@ -43,6 +44,12 @@ export function allManagedPaths(scope: "user" | "project"): string[] {
   paths.push(claudeMdPath(scope));
   // Plugin config paths (settings.json) for managed enabledPlugins entries
   paths.push(pluginConfigPath(scope));
+  // Hook entries live in the same settings file. Enumerated through its own
+  // helper rather than assumed equal to the plugin one, so a change to either
+  // is caught by the containment guard instead of by a mutation that has to be
+  // executed — and executing a path-redirection mutant writes to the real
+  // config before any test can report it.
+  paths.push(settingsPath(scope));
 
   return paths;
 }
