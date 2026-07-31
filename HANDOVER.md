@@ -11,7 +11,7 @@ Repo: **github.com/xooxoxxo/strongsuit**. Nothing is published to npm yet.
 
 `strongsuit` (binary `suit`) switches named **suits** — bundles of an agent's
 customization surface: skills, commands, subagents, rules, CLAUDE.md fragments, MCP
-servers, and soon plugins and hooks. `suit up coding` swaps the lot atomically.
+servers, plugins and hooks. `suit up coding` swaps the lot atomically.
 Remote suits will be gated behind a review pipeline before anything lands.
 
 Two backends, one ownership rule:
@@ -31,19 +31,17 @@ Config root is `~/.claude/strongsuit/`, overridable with `STRONGSUIT_HOME`.
 
 Done: M0 (foundation, CI, safety suite), M1 (packaging, Windows junctions, README, shell
 completion), M4 (two renames + `suit migrate`), M5 (manifest schema, file backends,
-`suit up` with rollback, the isolation spike), and the ledger backend (XO-178).
+`suit up` with rollback, the isolation spike), and **all of M6** — the ledger backend
+(XO-178), MCP components (XO-180), plugins with install orchestration (XO-181) and hooks
+with the per-hook approval gate (XO-182).
 
-**145 tests, green on macOS/Ubuntu/Windows × Node 20/22.**
-
-In flight: **PR #16 (XO-180, MCP components)** — reviewed, five defects fixed, awaiting a
-merge decision. Read the PR comment thread before merging; it records what was wrong and
-why.
+**200 tests, green on macOS/Ubuntu/Windows × Node 20/22.**
 
 Remaining, in dependency order:
 
 | Milestone | Issues |
 |---|---|
-| M6 Managed entries | XO-181 plugins · XO-182 hooks · XO-196 (test gap, see below) |
+| M6 leftovers | XO-196 (MCP rollback test gap, see below) |
 | M7 Remote + review | XO-183 review L1 → XO-184 `suit install` → XO-185 lockfile · XO-156 `--yes` · XO-158 onboarding |
 | M7.5 Per-session suits | XO-191 materializer → XO-192 `suit run` → XO-193 `.suitrc` binding |
 | M8 Launch | XO-145 publish (blocked by everything above) |
@@ -97,19 +95,20 @@ A mutation that leaves the suite green means the test validates what was written
 what could break. Write the real test or record the gap honestly (see XO-196 for the
 format) — do not ship a test that passes for the wrong reason.
 
-**Never execute a mutation that redirects a path.** This happened twice — the second
-time after the rule was already written here, by re-running a harness that still
-contained the mutant. Delete such mutants from the harness rather than remembering not
-to run it. The durable fix is that `settingsPath()` is now enumerated in
-`allManagedPaths()`, so G3 catches an escaping settings path with a read-only assertion
-and no mutation is needed at all.
- Sabotaging `settingsPath()` to use
+**Never execute a mutation that redirects a path.** Sabotaging `settingsPath()` to use
 `$HOME/.claude` instead of `CLAUDE_HOME` and then running the suite wrote a real file
 into the live config — the mutant did its damage before any test could report it, and
-`test/setup.ts` cannot help because the mutation is the thing bypassing it. Assert those
+`test/setup.ts` cannot help, because the mutation is the thing bypassing it. Assert those
 guards read-only instead: call the path helper and check the returned string. The same
 applies to any mutation that would make a write escape the sandbox rather than merely
 produce a wrong value.
+
+This happened **twice**, the second time after the rule was already written here — by
+re-running a harness that still contained the mutant. Knowing the rule does not help if
+the mutant is still in the script: delete it. The durable fix is that `settingsPath()` is
+now enumerated in `allManagedPaths()`, so G3 catches an escaping settings path with a
+read-only assertion and no mutation is needed at all. Do the same for any new path
+helper.
 
 **A mutation harness needs a trustworthy oracle.** Two ways a scripted harness
 reports a kill that never happened, both hit on XO-181:
@@ -134,7 +133,7 @@ file was clobbered, compare its contents against `~/.claude/settings.json.*backu
 ```bash
 npm install --include=dev
 npm run build          # tsc; must be clean
-npx vitest run         # 145 tests
+npx vitest run         # 200 tests
 ```
 
 Agent worktrees under `.claude/worktrees/` each carry a copy of the suite. They are
