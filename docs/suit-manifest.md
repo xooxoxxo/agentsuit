@@ -35,7 +35,7 @@ The `components` field is an object that groups different types of resources. Al
 | `claudemd` | string[] | List of CLAUDE.md file paths (forward-compat). |
 | `mcp` | object[] | List of MCP server configurations (forward-compat). |
 | `plugins` | (string \| object)[] | `"plugin@marketplace"`, or `{ref, marketplace}` to name the marketplace source. |
-| `hooks` | object[] | List of hook configurations (forward-compat). |
+| `hooks` | object[] | List of hooks: `{event, matcher?, command, timeout?}`. |
 
 Unknown component fields are rejected with a validation error naming the field and the manifest file.
 
@@ -78,10 +78,12 @@ components:
       marketplace: JuliusBrussee/caveman
 
   hooks:
-    - event: activate
-      script: setup.sh
-    - event: deactivate
-      script: teardown.sh
+    - event: PreToolUse
+      matcher: Bash
+      command: ~/.claude/guards/audit-bash.sh
+      timeout: 30
+    - event: Stop
+      command: notify-send "session finished"
 ```
 
 ## Validation Rules
@@ -106,9 +108,30 @@ components:
 
 ## Current Implementation
 
-**Consumed by CLI:** `components.skills`, `commands`, `agents`, `rules`, `claudemd`, `mcp` and `plugins` are activated by `suit up`.
+**Consumed by CLI:** every component field — `skills`, `commands`, `agents`, `rules`, `claudemd`, `mcp`, `plugins` and `hooks` — is activated by `suit up`.
 
-**Forward-compatible:** `components.hooks` is validated but not yet activated (XO-182).
+### Hooks
+
+Hooks are the only component that executes arbitrary code, so they carry rules
+the others do not:
+
+- **Every hook command is printed in full before activation.** `--yes` waives
+  the per-hook prompt, not the disclosure.
+- **Approval is never bulk.** Interactively, each hook is confirmed on its own
+  and declining one skips only that hook. With no TTY and no `--yes`,
+  `suit up` refuses rather than activating anything unseen.
+- **Ownership is per event, not per hook.** `hooks.<Event>` in settings is an
+  array and the ledger hashes whole values, so strongsuit either owns an event
+  or leaves it alone. Activating into an event that already holds hooks it did
+  not write is refused with a message naming the event — merging would mean
+  rewriting an array whose foreign elements it could not later tell from its
+  own, and a wrong guess there deletes someone's hook.
+- **`disableAllHooks` is respected and surfaced.** Hooks still install, and a
+  notice says they will not run until the flag is unset.
+- `event` must be one of: `PreToolUse`, `PostToolUse`, `Notification`,
+  `UserPromptSubmit`, `Stop`, `SubagentStop`, `PreCompact`, `SessionStart`,
+  `SessionEnd`. An unknown event is a validation error rather than a hook that
+  silently never fires.
 
 When these features are implemented, existing manifests will work without modification.
 

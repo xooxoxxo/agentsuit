@@ -55,8 +55,10 @@ export async function loadModules(tempHome: string) {
   const artifactTypes = await import("../src/artifact-types.js");
   const claudemd = await import("../src/claudemd.js");
   const mcp = await import("../src/mcp.js");
+  const hooks = await import("../src/hooks.js");
+  const managedJson = await import("../src/managed-json.js");
 
-  return { activate, fsutil, library, suits, sets, paths, migrate, ARTIFACT_TYPES: artifactTypes.ARTIFACT_TYPES, claudemd, mcp };
+  return { activate, fsutil, library, suits, sets, paths, migrate, ARTIFACT_TYPES: artifactTypes.ARTIFACT_TYPES, claudemd, mcp, hooks, managedJson };
 }
 
 /**

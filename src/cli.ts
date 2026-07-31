@@ -37,6 +37,7 @@ const cli = meow(
   ${chalk.bold("Flags")}
     --project     Operate on ./.claude/skills instead of ~/.claude/skills
     --as <name>   Used with "import" to rename the skill in the library
+    --yes         Activate a suit's hooks without a prompt (commands are still printed)
 
   ${chalk.bold("Examples")}
     $ suit init
@@ -50,6 +51,7 @@ const cli = meow(
     flags: {
       project: { type: "boolean", default: false },
       as: { type: "string" },
+      yes: { type: "boolean", default: false },
     },
   }
 );
@@ -84,12 +86,12 @@ async function main(): Promise<void> {
       break;
     case "up":
       requireArg(args[0], "suit name");
-      await runUp(args[0], scope);
+      await runUp(args[0], scope, { yes: cli.flags.yes });
       break;
     case "use":
       // Backward compat: 'use' is an alias for 'up'
       requireArg(args[0], "set/suit name");
-      await runUp(args[0], scope);
+      await runUp(args[0], scope, { yes: cli.flags.yes });
       break;
     case "off":
       await runOff(scope);
