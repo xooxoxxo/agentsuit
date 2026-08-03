@@ -11,6 +11,7 @@ import { runInit } from "./commands/init.js";
 import { runAdd, runRemove, runImport } from "./commands/add-remove.js";
 import { runCompletion } from "./commands/completion.js";
 import { runMigrate } from "./commands/migrate.js";
+import { runRestore } from "./commands/restore.js";
 import type { Scope } from "./activate.js";
 
 const cli = meow(
@@ -20,7 +21,8 @@ const cli = meow(
 
   ${chalk.bold("Commands")}
     migrate                     Relocate legacy ~/.claude/skillsets or ~/.claude/agentsuit to ~/.claude/strongsuit
-    init                        Migrate real skill dirs in the active folder into a managed library
+    init                        Migrate real skill dirs in the active folder into a managed library (takes a backup first)
+    restore                     Put the active skills dir back to its pre-init state
     list                        Show every skill in the library and whether it's active
     sets                        Show defined sets and which one (if any) is active
     new <set>                   Interactively pick skills for a new (or existing) set
@@ -75,6 +77,9 @@ async function main(): Promise<void> {
       break;
     case "init":
       runInit(scope);
+      break;
+    case "restore":
+      runRestore(scope);
       break;
     case "list":
       runList(scope);
