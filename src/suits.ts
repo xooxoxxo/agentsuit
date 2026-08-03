@@ -50,11 +50,19 @@ export function suitExists(name: string): boolean {
  */
 export function loadSuit(name: string): SuitManifest {
   const suitDir = path.join(SUITS_DIR, name);
-  const manifestPath = path.join(suitDir, "suit.yaml");
-
   if (!fs.existsSync(suitDir)) {
     throw new Error(`Suit directory not found: ${suitDir}`);
   }
+  return loadSuitFrom(suitDir);
+}
+
+/**
+ * Load and validate a suit manifest from an arbitrary directory.
+ * Used by `suit install` to read a manifest out of quarantine before
+ * anything is copied into the managed tree.
+ */
+export function loadSuitFrom(suitDir: string): SuitManifest {
+  const manifestPath = path.join(suitDir, "suit.yaml");
 
   if (!fs.existsSync(manifestPath)) {
     throw new Error(`Suit manifest not found: ${manifestPath}`);

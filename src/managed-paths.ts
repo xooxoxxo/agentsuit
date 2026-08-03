@@ -13,6 +13,7 @@ import { claudeMdPath } from "./claudemd.js";
 import { pluginConfigPath } from "./plugin.js";
 import { settingsPath } from "./hooks.js";
 import { initBackupsDir } from "./backup.js";
+import { quarantineRoot } from "./install.js";
 
 /**
  * Every filesystem location the tool may read or write for a scope.
@@ -53,6 +54,8 @@ export function allManagedPaths(scope: "user" | "project"): string[] {
   paths.push(settingsPath(scope));
   // Init snapshots — restore's source of truth, so its location is guarded too.
   if (scope === "user") paths.push(initBackupsDir("user"));
+  // Quarantine — remote bytes live only here until reviewed.
+  if (scope === "user") paths.push(quarantineRoot());
 
   return paths;
 }

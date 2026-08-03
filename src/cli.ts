@@ -12,6 +12,7 @@ import { runAdd, runRemove, runImport } from "./commands/add-remove.js";
 import { runCompletion } from "./commands/completion.js";
 import { runMigrate } from "./commands/migrate.js";
 import { runRestore } from "./commands/restore.js";
+import { runInstall } from "./commands/install.js";
 import type { Scope } from "./activate.js";
 
 const cli = meow(
@@ -27,6 +28,7 @@ const cli = meow(
     sets                        Show defined sets and which one (if any) is active
     new <set>                   Interactively pick skills for a new (or existing) set
     up <suit>                   Atomically activate all entries in a suit manifest
+    install <source>            Fetch a remote suit (owner/repo[@ref], URL, or local dir), review it, register it
     use <set>                   Alias for 'up' (backward compat); activate a set
     off                         Deactivate all managed entries
     enable <skill>              Activate a single skill without changing set membership
@@ -90,6 +92,14 @@ async function main(): Promise<void> {
     case "new":
       requireArg(args[0], "set name");
       await runNew(args[0]);
+      break;
+    case "install":
+      requireArg(args[0], "source");
+      await runInstall(args[0], scope, {
+        as: cli.flags.as,
+        yes: cli.flags.yes,
+        approveCodeExecution: cli.flags.approveCodeExecution,
+      });
       break;
     case "up":
       requireArg(args[0], "suit name");
