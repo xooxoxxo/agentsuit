@@ -52,7 +52,11 @@ describe("suit init backup / suit restore", () => {
       const full = path.join(dir, name);
       const stat = fs.lstatSync(full);
       if (stat.isSymbolicLink()) {
-        result[name] = `link:${fs.readlinkSync(full)}`;
+        // Normalize the target: Windows junctions report \\?\-prefixed,
+        // trailing-separator paths that differ textually between a live link
+        // and its snapshot round trip while pointing at the same place.
+        const raw = fs.readlinkSync(full).replace(/^\\\\\?\\/, "");
+        result[name] = `link:${path.resolve(raw)}`;
       } else if (stat.isDirectory()) {
         result[name] = `dir:${fs
           .readdirSync(full)
