@@ -101,13 +101,17 @@ function show(value: unknown): string | undefined {
 }
 
 /**
- * Reads a library entry's content so the reviewer sees the instructions the
- * agent would follow, not just a name.
+ * Reads an entry's markdown so the reviewer sees the instructions the agent
+ * would follow, not just a name. Content comes from the library for local
+ * suits, or from a quarantine root for a remote being reviewed before
+ * install — never from where the remote will eventually live.
  */
-function libraryContent(typeId: string, name: string): string {
+function entryContent(typeId: string, name: string, fileRoot?: string): string {
   const type = ARTIFACT_TYPES[typeId];
   if (!type) return name;
-  const dir = path.join(libraryPathForType(type), name);
+  const dir = fileRoot
+    ? path.join(fileRoot, typeId, name)
+    : path.join(libraryPathForType(type), name);
   try {
     const files = fs.readdirSync(dir).filter((f) => f.endsWith(".md")).sort();
     if (files.length === 0) return `${name} (no markdown files in ${dir})`;
@@ -126,7 +130,19 @@ function libraryContent(typeId: string, name: string): string {
  * choice, it is what makes a single hostile command in an otherwise reasonable
  * suit impossible to wave through.
  */
-export function buildReviewPlan(suit: SuitManifest, scope: Scope): ReviewItem[] {
+export interface PlanOptions {
+  /**
+   * Root to read file-component content from, laid out as `<root>/<type>/<name>`.
+   * Set when reviewing a remote suit still in quarantine.
+   */
+  fileRoot?: string;
+}
+
+export function buildReviewPlan(
+  suit: SuitManifest,
+  scope: Scope,
+  options: PlanOptions = {}
+): ReviewItem[] {
   const items: ReviewItem[] = [];
   const components = suit.components ?? {};
 
@@ -154,7 +170,13 @@ export function buildReviewPlan(suit: SuitManifest, scope: Scope): ReviewItem[] 
       const activeDir = ARTIFACT_TYPES[typeId]?.activeDirForScope(scope);
       const active = activeDir && fs.existsSync(path.join(activeDir, name));
       items.push(
-        item(typeId, name, libraryContent(typeId, name), name, active ? "already active" : undefined)
+        item(
+          typeId,
+          name,
+          entryContent(typeId, name, options.fileRoot),
+          name,
+          active ? "already active" : undefined
+        )
       );
     }
   }

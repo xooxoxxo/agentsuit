@@ -42,7 +42,7 @@ Remaining, in dependency order:
 | Milestone | Issues |
 |---|---|
 | M6 leftovers | XO-196 (MCP rollback test gap, see below) |
-| M7 Remote + review | XO-183 review L1 → XO-184 `suit install` → XO-185 lockfile · XO-156 `--yes` · XO-158 onboarding |
+| M7 Remote + review | XO-185 lockfile · XO-156 `--yes` polish · XO-158 onboarding (XO-183 review + XO-184 install shipped) |
 | M7.5 Per-session suits | XO-191 materializer → XO-192 `suit run` → XO-193 `.suitrc` binding |
 | M8 Launch | XO-145 publish (blocked by everything above) |
 | M9 Post-launch | XO-146/147 suggest+find, 148 status, 149 doctor, 150 `up --add`, 152 `--purge` polish (backup+restore shipped pre-release), 153 website, 159 export/import, 160 scaffold, 186 permissions/env, 187 review L2 |
