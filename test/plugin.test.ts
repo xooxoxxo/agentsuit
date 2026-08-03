@@ -166,7 +166,7 @@ describe("Plugin Activation and Deactivation", () => {
       const { suits, up, configPath, paths } = await setup();
       suits.saveSuit({ name: "coding", components: { plugins: ["superpowers@official"] } });
 
-      await runQuietly(() => up.runUp("coding", "user"));
+      await runQuietly(() => up.runUp("coding", "user", { yes: true }));
 
       expect(readEnabled(configPath)["superpowers@official"]).toBe(true);
 
@@ -185,7 +185,7 @@ describe("Plugin Activation and Deactivation", () => {
       );
 
       suits.saveSuit({ name: "coding", components: { plugins: ["ours@official"] } });
-      await runQuietly(() => up.runUp("coding", "user"));
+      await runQuietly(() => up.runUp("coding", "user", { yes: true }));
 
       expect(readEnabled(configPath)["hand-installed@elsewhere"]).toBe(true);
       expect(readEnabled(configPath)["ours@official"]).toBe(true);
@@ -201,13 +201,13 @@ describe("Plugin Activation and Deactivation", () => {
       const { suits, up, configPath } = await setup();
       suits.saveSuit({ name: "coding", components: { plugins: ["ours@official"] } });
 
-      await runQuietly(() => up.runUp("coding", "user"));
+      await runQuietly(() => up.runUp("coding", "user", { yes: true }));
       const afterFirst = readEnabled(configPath);
 
       await runQuietly(() => up.runOff("user"));
       expect(readEnabled(configPath)["ours@official"]).toBeUndefined();
 
-      await runQuietly(() => up.runUp("coding", "user"));
+      await runQuietly(() => up.runUp("coding", "user", { yes: true }));
       expect(readEnabled(configPath)).toEqual(afterFirst);
     });
 
@@ -217,7 +217,7 @@ describe("Plugin Activation and Deactivation", () => {
       fs.writeFileSync(configPath, JSON.stringify({ model: "opus" }));
 
       suits.saveSuit({ name: "coding", components: { plugins: ["ours@official"] } });
-      await runQuietly(() => up.runUp("coding", "user"));
+      await runQuietly(() => up.runUp("coding", "user", { yes: true }));
 
       expect(JSON.parse(fs.readFileSync(configPath, "utf-8")).model).toBe("opus");
     });
@@ -334,7 +334,7 @@ describe("Plugin Activation and Deactivation", () => {
       plugin.setPluginCommandRunner(stubClaude({ marketplaces: ["official"], fail: "install" }));
       suits.saveSuit({ name: "coding", components: { plugins: ["ours@official"] } });
 
-      await runQuietly(() => up.runUp("coding", "user"));
+      await runQuietly(() => up.runUp("coding", "user", { yes: true }));
 
       const enabled = fs.existsSync(configPath) ? readEnabled(configPath) : {};
       expect(enabled["ours@official"]).toBeUndefined();
@@ -349,7 +349,7 @@ describe("Plugin Activation and Deactivation", () => {
         components: { plugins: ["good@official", "no-marketplace"] },
       });
 
-      await runQuietly(() => up.runUp("broken", "user"));
+      await runQuietly(() => up.runUp("broken", "user", { yes: true }));
 
       const enabled = fs.existsSync(configPath) ? readEnabled(configPath) : {};
       expect(enabled["good@official"]).toBeUndefined();

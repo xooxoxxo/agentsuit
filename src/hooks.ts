@@ -116,72 +116,12 @@ export function formatHook(hook: HookEntry): string {
   return `${target}${timeout}\n    ${hook.command}`;
 }
 
-export interface ApprovalOptions {
-  /** Skip the per-hook prompt. Commands are still printed in full. */
-  yes?: boolean;
-  /** Whether a human can answer. Defaults to whether stdin is a TTY. */
-  interactive?: boolean;
-  /** Per-hook confirm. Injected in tests; defaults to an inquirer prompt. */
-  confirm?: (hook: HookEntry) => Promise<boolean>;
-  /** Output sink. Injected in tests; defaults to console.log. */
-  print?: (line: string) => void;
-}
-
-/**
- * Returns the subset of hooks the user approved.
- *
- * Hooks are never bulk-approved. Both paths print every command in full:
- * `--yes` waives the prompt, not the disclosure. With no TTY and no `--yes`
- * this throws rather than activating anything, because a hook that nobody
- * saw is exactly the failure this gate exists to prevent.
+/*
+ * Approval used to live here. It now belongs to the review engine
+ * (src/review.ts), which gates every component type by risk class rather than
+ * hooks alone — two approval paths meant two sets of rules to keep in step,
+ * and their `--yes` semantics had already diverged.
  */
-export async function approveHooks(
-  hooks: HookEntry[],
-  options: ApprovalOptions = {}
-): Promise<HookEntry[]> {
-  if (hooks.length === 0) return [];
-
-  const print = options.print ?? ((line: string) => console.log(line));
-
-  print(
-    chalk.yellow(
-      `\n⚠️  This suit activates ${hooks.length} hook${hooks.length === 1 ? "" : "s"}. Hooks run arbitrary commands on your machine.`
-    )
-  );
-  for (const hook of hooks) {
-    print(`  ${formatHook(hook)}`);
-  }
-
-  if (options.yes) return hooks;
-
-  const interactive = options.interactive ?? Boolean(process.stdin.isTTY);
-  if (!interactive) {
-    throw new Error(
-      `Refusing to activate ${hooks.length} hook${hooks.length === 1 ? "" : "s"} without confirmation. ` +
-        `Run this in an interactive terminal, or pass --yes to accept every hook listed above.`
-    );
-  }
-
-  const confirm = options.confirm ?? defaultConfirm;
-  const approved: HookEntry[] = [];
-  for (const hook of hooks) {
-    if (await confirm(hook)) approved.push(hook);
-  }
-  return approved;
-}
-
-async function defaultConfirm(hook: HookEntry): Promise<boolean> {
-  const inquirer = (await import("inquirer")).default;
-  const { approved } = await inquirer.prompt<{ approved: boolean }>([
-    {
-      type: "confirm",
-      name: "approved",
-      message: `Activate this hook?\n  ${formatHook(hook)}\n`,
-      default: false,
-    },
-  ]);
-  return approved;
-}
 
 /** Reads a settings file, returning an empty object when absent or unparseable. */
 function readSettings(file: string): Record<string, unknown> {

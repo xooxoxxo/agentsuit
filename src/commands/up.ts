@@ -22,19 +22,28 @@ import {
 } from "../plugin.js";
 import {
   validateHook,
-  approveHooks,
   activateHooks,
   deactivateHooks,
   disabledNotice,
   settingsPath,
   type HookEntry,
 } from "../hooks.js";
+import {
+  buildReviewPlan,
+  reviewComponents,
+  filterApproved,
+  recordDecisions,
+  summarize,
+} from "../review.js";
+import type { SuitManifest } from "../suits.js";
 import { ledgerPath, backupsDir } from "../paths.js";
 
 /** Options accepted by `suit up`. */
 export interface UpOptions {
-  /** Waive the per-hook prompt. Every hook command is still printed. */
+  /** Approve every non-RED component without prompting. Everything is still printed. */
   yes?: boolean;
+  /** Also approve RED components. Separate from `yes` on purpose. */
+  approveCodeExecution?: boolean;
 }
 
 /** Single operation in the journal for rollback. */
@@ -109,9 +118,10 @@ async function activateWithRollback(
   suitName: string,
   scope: Scope,
   journal: JournalEntry[],
+  reviewed: SuitManifest,
   approvedHooks: HookEntry[] = []
 ): Promise<TypeResult[]> {
-  const suit = loadSuit(suitName);
+  const suit = reviewed;
   const results: TypeResult[] = [];
 
   // Pre-flight: capture the state of all directories before we start
@@ -716,31 +726,36 @@ async function activatePlugins(
 }
 
 /**
- * Validates a suit's hooks and puts each one in front of the user.
+ * Puts every component of the suit in front of the user and returns what
+ * survived review.
  *
- * Runs before the spinner starts and before anything is written: a hook is
- * arbitrary code, so nothing about it may be decided while a progress
- * animation is covering the terminal, and nothing is written until it is
- * approved.
+ * Runs before the spinner starts and before anything is written: components
+ * can run code, and nothing about them may be decided while a progress
+ * animation is covering the terminal.
  */
-async function approveSuitHooks(
+async function reviewSuit(
   suitName: string,
+  scope: Scope,
   options: UpOptions
-): Promise<HookEntry[]> {
-  const specs = loadSuit(suitName).components?.hooks ?? [];
-  if (specs.length === 0) return [];
+): Promise<{ reviewed: SuitManifest; hooks: HookEntry[] }> {
+  const suit = loadSuit(suitName);
+  const plan = buildReviewPlan(suit, scope);
+  if (plan.length === 0) return { reviewed: suit, hooks: [] };
 
-  const validated = (specs as unknown[]).map((spec) => {
-    try {
-      return validateHook(spec);
-    } catch (err) {
-      throw new Error(
-        `Failed to activate hooks for suit '${suitName}': ${(err as Error).message}`
-      );
-    }
+  const decisions = await reviewComponents(plan, {
+    yes: options.yes,
+    approveCodeExecution: options.approveCodeExecution,
   });
+  recordDecisions(suitName, decisions);
 
-  return approveHooks(validated, { yes: options.yes });
+  const reviewed = filterApproved(suit, decisions);
+  const hooks = (reviewed.components?.hooks ?? []).map((entry) => validateHook(entry));
+
+  if (decisions.some((decision) => !decision.approved)) {
+    console.log(summarize(decisions));
+  }
+
+  return { reviewed, hooks };
 }
 
 /** Writes approved hooks through the ledger, journalling every change. */
@@ -784,10 +799,10 @@ export async function runUp(
   const journal: JournalEntry[] = [];
 
   try {
-    // Approval happens before the spinner so the prompt is not drawn over.
-    const approvedHooks = await approveSuitHooks(suitName, options);
+    // Review happens before the spinner so the prompts are not drawn over.
+    const { reviewed, hooks: approvedHooks } = await reviewSuit(suitName, scope, options);
     spinner.start();
-    const results = await activateWithRollback(suitName, scope, journal, approvedHooks);
+    const results = await activateWithRollback(suitName, scope, journal, reviewed, approvedHooks);
 
     // Report per-type summary
     const summaryLines: string[] = [];

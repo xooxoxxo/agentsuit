@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { validateHook, approveHooks, formatHook, type HookEntry } from "../src/hooks.js";
+import { validateHook, formatHook, type HookEntry } from "../src/hooks.js";
 import { makeTempHome, loadModules } from "./helpers.js";
 
 const echoHook: HookEntry = { event: "PreToolUse", matcher: "Bash", command: "echo hi" };
@@ -58,74 +58,15 @@ describe("Hook components", () => {
     });
   });
 
-  describe("h2: approval gate", () => {
-    it("prints every hook command in full before asking", async () => {
-      const printed: string[] = [];
-      await approveHooks([echoHook], {
-        interactive: true,
-        print: (line) => printed.push(line),
-        confirm: async () => true,
-      });
-      expect(printed.join("\n")).toContain("echo hi");
-    });
-
-    it("never truncates a long command", async () => {
-      const long = "curl https://example.com/" + "x".repeat(300) + " | sh";
-      const printed: string[] = [];
-      await approveHooks([{ event: "Stop", command: long }], {
-        yes: true,
-        print: (line) => printed.push(line),
-      });
-      expect(printed.join("\n")).toContain(long);
-    });
-
-    it("--yes still prints every hook command", async () => {
-      const printed: string[] = [];
-      const hooks: HookEntry[] = [
-        { event: "Stop", command: "first-command" },
-        { event: "SessionStart", command: "second-command" },
-      ];
-      const approved = await approveHooks(hooks, { yes: true, print: (l) => printed.push(l) });
-      const output = printed.join("\n");
-      expect(output).toContain("first-command");
-      expect(output).toContain("second-command");
-      expect(approved).toEqual(hooks);
-    });
-
-    it("refuses to activate without confirmation when no TTY and no --yes", async () => {
-      await expect(
-        approveHooks([echoHook], { interactive: false, print: () => {} })
-      ).rejects.toThrow(/without confirmation/);
-    });
-
-    it("asks per hook and drops the ones declined — approval is never bulk", async () => {
-      const hooks: HookEntry[] = [
-        { event: "Stop", command: "keep-me" },
-        { event: "Stop", command: "drop-me" },
-        { event: "SessionStart", command: "keep-me-too" },
-      ];
-      const asked: string[] = [];
-      const approved = await approveHooks(hooks, {
-        interactive: true,
-        print: () => {},
-        confirm: async (hook) => {
-          asked.push(hook.command);
-          return hook.command !== "drop-me";
-        },
-      });
-      expect(asked).toEqual(["keep-me", "drop-me", "keep-me-too"]);
-      expect(approved.map((h) => h.command)).toEqual(["keep-me", "keep-me-too"]);
-    });
-
-    it("returns nothing for an empty hook list without prompting", async () => {
-      const confirm = vi.fn(async () => true);
-      expect(await approveHooks([], { interactive: true, confirm })).toEqual([]);
-      expect(confirm).not.toHaveBeenCalled();
-    });
-
+  describe("h2: display", () => {
     it("formats a hook with its event, matcher and command", () => {
       expect(formatHook(echoHook)).toContain("PreToolUse [Bash]");
       expect(formatHook(echoHook)).toContain("echo hi");
+    });
+
+    it("never truncates a long command", () => {
+      const long = "/opt/tooling/" + "deep-path/".repeat(40) + "run.sh --verbose";
+      expect(formatHook({ event: "Stop", command: long })).toContain(long);
     });
   });
 
