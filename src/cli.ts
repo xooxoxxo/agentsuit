@@ -13,6 +13,7 @@ import { runCompletion } from "./commands/completion.js";
 import { runMigrate } from "./commands/migrate.js";
 import { runRestore } from "./commands/restore.js";
 import { runInstall } from "./commands/install.js";
+import { runSync } from "./commands/sync.js";
 import type { Scope } from "./activate.js";
 
 const cli = meow(
@@ -29,6 +30,7 @@ const cli = meow(
     new <set>                   Interactively pick skills for a new (or existing) set
     up <suit>                   Atomically activate all entries in a suit manifest
     install <source>            Fetch a remote suit (owner/repo[@ref], URL, or local dir), review it, register it
+    sync <suit>                 Re-fetch an installed suit; changed components are blocked until re-reviewed
     use <set>                   Alias for 'up' (backward compat); activate a set
     off                         Deactivate all managed entries
     enable <skill>              Activate a single skill without changing set membership
@@ -97,6 +99,13 @@ async function main(): Promise<void> {
       requireArg(args[0], "source");
       await runInstall(args[0], scope, {
         as: cli.flags.as,
+        yes: cli.flags.yes,
+        approveCodeExecution: cli.flags.approveCodeExecution,
+      });
+      break;
+    case "sync":
+      requireArg(args[0], "suit name");
+      await runSync(args[0], scope, {
         yes: cli.flags.yes,
         approveCodeExecution: cli.flags.approveCodeExecution,
       });

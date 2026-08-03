@@ -33,9 +33,12 @@ import {
   reviewComponents,
   filterApproved,
   recordDecisions,
+  renderItem,
+  type Decision,
   summarize,
 } from "../review.js";
 import type { SuitManifest } from "../suits.js";
+import { verifyAgainstLock, pinSuit, driftDiff } from "../lock.js";
 import { ledgerPath, backupsDir } from "../paths.js";
 
 /** Options accepted by `suit up`. */
@@ -742,11 +745,45 @@ async function reviewSuit(
   const plan = buildReviewPlan(suit, scope);
   if (plan.length === 0) return { reviewed: suit, hooks: [] };
 
-  const decisions = await reviewComponents(plan, {
-    yes: options.yes,
-    approveCodeExecution: options.approveCodeExecution,
-  });
+  // The lock first. A component whose content still matches its pin was
+  // already approved in exactly this form — activating it silently is the
+  // point of pinning. A component that no longer matches is blocked: upstream
+  // drift and local tamper look identical here, deliberately.
+  const verified = verifyAgainstLock(suitName, plan);
+  const decisions: Decision[] = [];
+  const needReview = [];
+
+  for (const entry of verified) {
+    if (entry.state === "unchanged") {
+      decisions.push({ item: entry.item, approved: true });
+    } else if (entry.state === "changed") {
+      console.log(
+        chalk.red(
+          `\n⛔ ${entry.item.type}: ${entry.item.id} has changed since it was approved.`
+        )
+      );
+      console.log(driftDiff(entry.pinned!.detail, entry.item.detail));
+      if (options.yes) {
+        // --yes never re-approves drifted content; that is what it drifted from.
+        decisions.push({ item: entry.item, approved: false });
+      } else {
+        needReview.push(entry.item);
+      }
+    } else {
+      needReview.push(entry.item);
+    }
+  }
+
+  if (needReview.length > 0) {
+    decisions.push(
+      ...(await reviewComponents(needReview, {
+        yes: options.yes,
+        approveCodeExecution: options.approveCodeExecution,
+      }))
+    );
+  }
   recordDecisions(suitName, decisions);
+  pinSuit(suitName, decisions);
 
   const reviewed = filterApproved(suit, decisions);
   const hooks = (reviewed.components?.hooks ?? []).map((entry) => validateHook(entry));

@@ -14,6 +14,7 @@ import { pluginConfigPath } from "./plugin.js";
 import { settingsPath } from "./hooks.js";
 import { initBackupsDir } from "./backup.js";
 import { quarantineRoot } from "./install.js";
+import { lockPath } from "./lock.js";
 
 /**
  * Every filesystem location the tool may read or write for a scope.
@@ -56,6 +57,8 @@ export function allManagedPaths(scope: "user" | "project"): string[] {
   if (scope === "user") paths.push(initBackupsDir("user"));
   // Quarantine — remote bytes live only here until reviewed.
   if (scope === "user") paths.push(quarantineRoot());
+  // The lockfile — pins of approved content.
+  if (scope === "user") paths.push(lockPath());
 
   return paths;
 }
