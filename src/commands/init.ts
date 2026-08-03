@@ -2,8 +2,17 @@ import chalk from "chalk";
 import { initMigrate } from "../activate.js";
 import { LIBRARY_DIR } from "../paths.js";
 import type { Scope } from "../activate.js";
+import { createInitBackup } from "../backup.js";
 
 export function runInit(scope: Scope): void {
+  // Snapshot before anything moves. init deletes each real skill directory
+  // after copying it into the library; the snapshot is what lets
+  // 'suit restore' undo that instead of the change being one-directional.
+  const backup = createInitBackup(scope);
+  if (backup) {
+    console.log(chalk.dim(`Backup of ${backup.entries.length} entries taken: ${backup.dir}`));
+  }
+
   const { migrated, adopted, alreadyManaged, broken, conflicts } = initMigrate(scope, LIBRARY_DIR);
 
   if (migrated.length > 0) {
@@ -32,4 +41,7 @@ export function runInit(scope: Scope): void {
   }
 
   console.log(chalk.dim(`\nLibrary lives at: ${LIBRARY_DIR}`));
+  if (backup) {
+    console.log(chalk.dim(`To return to the pre-init layout: suit restore`));
+  }
 }

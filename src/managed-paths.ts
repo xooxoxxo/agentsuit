@@ -12,6 +12,7 @@ import { ARTIFACT_TYPES, libraryPathForType } from "./artifact-types.js";
 import { claudeMdPath } from "./claudemd.js";
 import { pluginConfigPath } from "./plugin.js";
 import { settingsPath } from "./hooks.js";
+import { initBackupsDir } from "./backup.js";
 
 /**
  * Every filesystem location the tool may read or write for a scope.
@@ -50,6 +51,8 @@ export function allManagedPaths(scope: "user" | "project"): string[] {
   // executed — and executing a path-redirection mutant writes to the real
   // config before any test can report it.
   paths.push(settingsPath(scope));
+  // Init snapshots — restore's source of truth, so its location is guarded too.
+  if (scope === "user") paths.push(initBackupsDir("user"));
 
   return paths;
 }
