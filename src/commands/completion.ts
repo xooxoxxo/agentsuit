@@ -48,7 +48,7 @@ _suit_completion() {
   words=("\${COMP_WORDS[@]}")
   cword=\${COMP_CWORD}
 
-  local commands="init restore install list sets new use enable disable add remove import completion"
+  local commands="init restore install sync list sets new use enable disable add remove import completion"
 
   # Complete command name if we're at position 1
   if [ \$cword -eq 1 ]; then
@@ -106,6 +106,7 @@ _suit_completion() {
     'init:Migrate real skill dirs in the active folder into a managed library'
     'restore:Put the active skills dir back to its pre-init state'
     'install:Fetch a remote suit into quarantine, review it, register it'
+    'sync:Re-fetch an installed suit; drifted components blocked until re-reviewed'
     'list:Show every skill in the library and whether it'"'"'s active'
     'sets:Show defined sets and which one (if any) is active'
     'new:Interactively pick skills for a new (or existing) set'

@@ -54,6 +54,26 @@ the content that was approved and nothing else — edit the skill, and
 inheriting a decision made about different text. This is what the L3 lockfile
 (XO-185) builds on.
 
+## The lockfile (review L3)
+
+`<strongsuit>/suit.lock` pins every approved component: the sha256 of exactly
+what the reviewer saw, the text itself (for drift diffs), and — for installed
+suits — the source and ref. Approval attaches to content, never to a name.
+
+On `suit up`:
+
+| Pin state | Behaviour |
+|---|---|
+| unchanged | activates silently — the approval still applies |
+| changed | **blocked**, diff shown. Upstream drift and local tamper are indistinguishable by design. Interactive re-review re-pins; `--yes` never re-approves drift |
+| unpinned | normal review flow |
+
+`suit sync <name>` re-fetches an installed suit's source and runs a **delta
+review**: unchanged components are silent, only drift is decided on. Rejecting
+v2 does not unapprove v1 — the old pin stands, the old library copy stays, and
+the manifest is merged per decision (never taken from the remote wholesale,
+which would smuggle rejected MCP or hook config into the next `suit up`).
+
 ## Verification
 
 Nine mutations were applied to the review engine and all nine were killed by a

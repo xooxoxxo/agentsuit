@@ -11,6 +11,7 @@ import {
   withoutConflicts,
   assertInstallable,
 } from "../install.js";
+import { pinSuit } from "../lock.js";
 import {
   buildReviewPlan,
   reviewComponents,
@@ -79,6 +80,9 @@ export async function runInstall(
 
     saveSuit(finalSuit);
     recordDecisions(name, decisions);
+    // Pin what was approved, tied to where it came from — `suit sync` and the
+    // drift check in `suit up` both build on this.
+    pinSuit(name, decisions, { location: parsed.location, ...(parsed.ref ? { ref: parsed.ref } : {}) });
 
     if (copied.length > 0) {
       console.log(chalk.green(`Into library (${copied.length}): ${copied.join(", ")}`));
