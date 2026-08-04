@@ -2,7 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { runRun, setClaudeRunner } from "../src/commands/run.js";
+import { runRun, runResume, setClaudeRunner } from "../src/commands/run.js";
+import { sessionById, recordSession } from "../src/suitrc.js";
 import { materializeTmpRoot, materializedDirFor } from "../src/materialize.js";
 import { saveSuit } from "../src/suits.js";
 import { STRONGSUIT_DIR, CLAUDE_HOME } from "../src/paths.js";
@@ -75,9 +76,12 @@ describe("suit run (r1–r3): flags, passthrough, exit code, cleanup", () => {
     expect(seen!.command).toBe("claude");
     const root = materializedDirFor("focus");
     // Passthrough leads: a positional prompt after the variadic --mcp-config
-    // would be swallowed as another config path (XO-188).
+    // would be swallowed as another config path (XO-188). Then the minted
+    // session id, then the suit flags.
     expect(seen!.args.slice(0, 4)).toEqual(["--model", "opus", "-p", "hi"]);
-    expect(seen!.args.slice(4)).toEqual([
+    expect(seen!.args[4]).toBe("--session-id");
+    expect(seen!.args[5]).toMatch(/^[0-9a-f-]{36}$/);
+    expect(seen!.args.slice(6)).toEqual([
       "--plugin-dir",
       root,
       "--strict-mcp-config",
@@ -120,7 +124,7 @@ describe("suit run (r1–r3): flags, passthrough, exit code, cleanup", () => {
 });
 
 describe("suit run (r4): zero global mutation", () => {
-  it("leaves the Claude home byte-identical", async () => {
+  it("leaves the Claude home byte-identical except the session map", async () => {
     makeSkill("alpha");
     saveSuit({
       name: "iso",
@@ -131,7 +135,13 @@ describe("suit run (r4): zero global mutation", () => {
     setClaudeRunner(() => ({ status: 0 }));
     await runRun("iso");
 
-    expect(fingerprint(CLAUDE_HOME)).toEqual(before);
+    // The one legitimate write is the session binding (XO-193) — strongsuit's
+    // own state, not a Claude config surface. Everything else: untouched.
+    const after = fingerprint(CLAUDE_HOME);
+    const changed = after.filter((line) => !before.includes(line));
+    expect(changed).toHaveLength(1);
+    expect(changed[0]).toMatch(/^strongsuit\/sessions\.json /);
+    expect(before.filter((line) => !after.includes(line))).toEqual([]);
   });
 });
 
@@ -191,5 +201,136 @@ describe("suit run (r5–r7): errors, honest UX, sweep", () => {
     await runRun("sweeper");
 
     expect(fs.existsSync(stale)).toBe(false);
+  });
+});
+
+describe("suit run + .suitrc + session map (XO-193)", () => {
+  let cwdSpy: ReturnType<typeof vi.spyOn> | undefined;
+  let scratch: string;
+
+  function chdirTo(dir: string): void {
+    cwdSpy?.mockRestore();
+    cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(dir);
+  }
+
+  beforeEach(() => {
+    scratch = fs.mkdtempSync(path.join(os.tmpdir(), "run-rc-test-"));
+  });
+
+  afterEach(() => {
+    cwdSpy?.mockRestore();
+    cwdSpy = undefined;
+    fs.rmSync(scratch, { recursive: true, force: true });
+  });
+
+  it("run with no name wears the nearest .suitrc suit and records the binding", async () => {
+    saveSuit({ name: "rcsuit" });
+    const nested = path.join(scratch, "deep", "er");
+    fs.mkdirSync(nested, { recursive: true });
+    fs.writeFileSync(path.join(scratch, ".suitrc"), "# team suit\nrcsuit\n", "utf8");
+    chdirTo(nested);
+
+    let seen: string[] = [];
+    setClaudeRunner((_c, args) => {
+      seen = args;
+      return { status: 0 };
+    });
+    expect(await runRun(undefined)).toBe(0);
+
+    const id = seen[seen.indexOf("--session-id") + 1];
+    expect(sessionById(id)).toMatchObject({ suit: "rcsuit", cwd: nested });
+  });
+
+  it("run with no name and no .suitrc anywhere refuses with guidance", async () => {
+    chdirTo(scratch);
+    const runner = vi.fn(() => ({ status: 0 }));
+    setClaudeRunner(runner);
+    await expect(runRun(undefined)).rejects.toThrow(/no \.suitrc found/);
+    expect(runner).not.toHaveBeenCalled();
+  });
+
+  it("resume re-applies the LAUNCH suit's flags even after .suitrc changed", async () => {
+    makeSkill("alpha");
+    saveSuit({ name: "born-with", components: { skills: ["alpha"] } });
+    saveSuit({ name: "directory-now-says" });
+    fs.writeFileSync(path.join(scratch, ".suitrc"), "born-with\n", "utf8");
+    chdirTo(scratch);
+
+    let launchArgs: string[] = [];
+    setClaudeRunner((_c, args) => {
+      launchArgs = args;
+      return { status: 0 };
+    });
+    await runRun(undefined);
+    const id = launchArgs[launchArgs.indexOf("--session-id") + 1];
+
+    // The directory moves on; the conversation must not.
+    fs.writeFileSync(path.join(scratch, ".suitrc"), "directory-now-says\n", "utf8");
+
+    let resumeArgs: string[] = [];
+    setClaudeRunner((_c, args) => {
+      resumeArgs = args;
+      return { status: 0 };
+    });
+    expect(await runResume(id)).toBe(0);
+
+    expect(resumeArgs.slice(0, 2)).toEqual(["--resume", id]);
+    const root = materializedDirFor("born-with");
+    expect(resumeArgs.slice(2)).toEqual([
+      "--plugin-dir",
+      root,
+      "--strict-mcp-config",
+      "--mcp-config",
+      path.join(root, "mcp.json"),
+    ]);
+  });
+
+  it("resume with no id picks the latest suit-launched session in this directory", async () => {
+    saveSuit({ name: "first" });
+    saveSuit({ name: "second" });
+    chdirTo(scratch);
+    recordSession("id-old", { suit: "first", cwd: scratch, launchedAt: "2026-08-01T00:00:00Z" });
+    recordSession("id-new", { suit: "second", cwd: scratch, launchedAt: "2026-08-04T00:00:00Z" });
+
+    let seen: string[] = [];
+    setClaudeRunner((_c, args) => {
+      seen = args;
+      return { status: 0 };
+    });
+    await runResume(undefined);
+    expect(seen.slice(0, 2)).toEqual(["--resume", "id-new"]);
+  });
+
+  it("resume refuses an id the wrapper never launched, and an empty directory history", async () => {
+    chdirTo(scratch);
+    const runner = vi.fn(() => ({ status: 0 }));
+    setClaudeRunner(runner);
+    await expect(runResume("deadbeef")).rejects.toThrow(/not launched through 'suit run'/);
+    await expect(runResume(undefined)).rejects.toThrow(/No suit-launched session/);
+    expect(runner).not.toHaveBeenCalled();
+  });
+
+  it("run --continue resumes the latest session in the directory", async () => {
+    saveSuit({ name: "cont" });
+    chdirTo(scratch);
+    recordSession("id-cont", { suit: "cont", cwd: scratch, launchedAt: "2026-08-04T00:00:00Z" });
+
+    let seen: string[] = [];
+    setClaudeRunner((_c, args) => {
+      seen = args;
+      return { status: 0 };
+    });
+    await runRun(undefined, [], { continue: true });
+    expect(seen.slice(0, 2)).toEqual(["--resume", "id-cont"]);
+  });
+
+  it("rejects session-lifecycle flags in passthrough — they would bypass the binding", async () => {
+    saveSuit({ name: "guard" });
+    const runner = vi.fn(() => ({ status: 0 }));
+    setClaudeRunner(runner);
+    await expect(runRun("guard", ["--resume", "x"])).rejects.toThrow(/bypass the session map/);
+    await expect(runRun("guard", ["-c"])).rejects.toThrow(/bypass the session map/);
+    await expect(runResume("any", ["--session-id", "y"])).rejects.toThrow(/bypass the session map/);
+    expect(runner).not.toHaveBeenCalled();
   });
 });
