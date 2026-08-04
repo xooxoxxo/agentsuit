@@ -755,6 +755,7 @@ async function reviewSuit(
   const decisions: Decision[] = [];
   const needReview = [];
 
+  const trustedLocal: typeof plan = [];
   for (const entry of verified) {
     if (entry.state === "unchanged") {
       decisions.push({ item: entry.item, approved: true });
@@ -772,20 +773,47 @@ async function reviewSuit(
         needReview.push(entry.item);
       }
     } else {
-      needReview.push(entry.item);
+      // Unpinned = local provenance. Pins exist only for content that came
+      // through install/sync review; everything else was put here by the
+      // user — init adoption, suit import, a hand-written manifest. Review
+      // guards the remote boundary; it does not gate the user's own files,
+      // and local content is deliberately NOT pinned so editing your own
+      // skills never triggers a drift block.
+      trustedLocal.push(entry.item);
+      decisions.push({ item: entry.item, approved: true });
     }
   }
 
-  if (needReview.length > 0) {
-    decisions.push(
-      ...(await reviewComponents(needReview, {
-        yes: options.yes,
-        approveCodeExecution: options.approveCodeExecution,
-      }))
+  if (trustedLocal.length > 0) {
+    console.log(
+      chalk.gray(
+        `${trustedLocal.length} local component(s) activated without review — review applies to remote installs (suit install/sync).`
+      )
     );
+    for (const item of trustedLocal) {
+      if (item.type === "hooks") {
+        // Disclosure survives the trust rule: a hook's full command is
+        // always printed before it can run.
+        console.log(chalk.yellow(`  hook ${item.id}: ${item.detail}`));
+      }
+    }
   }
-  recordDecisions(suitName, decisions);
-  pinSuit(suitName, decisions);
+
+  // Only genuinely reviewed items are recorded and (re)pinned. Trusted-local
+  // approvals must stay OUT of the lock: pinning them would drift-block the
+  // user's next edit to their own file.
+  let reviewedDecisions: Decision[] = [];
+  if (needReview.length > 0) {
+    reviewedDecisions = await reviewComponents(needReview, {
+      yes: options.yes,
+      approveCodeExecution: options.approveCodeExecution,
+    });
+    decisions.push(...reviewedDecisions);
+  }
+  if (reviewedDecisions.length > 0) {
+    recordDecisions(suitName, reviewedDecisions);
+    pinSuit(suitName, reviewedDecisions);
+  }
 
   const reviewed = filterApproved(suit, decisions);
   const hooks = (reviewed.components?.hooks ?? []).map((entry) => validateHook(entry));
