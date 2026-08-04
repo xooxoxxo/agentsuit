@@ -140,6 +140,18 @@ claude -p "Quote the codeword from the marker skill's description verbatim." \
 # Expected: the codeword, proving the plugin loaded (claims 8/10 measured 2026-07-30)
 ```
 
+## suit run (XO-192)
+
+`suit run <name> [-- <claude args>]` wires the materializer to a real launch:
+passthrough args lead (the variadic `--mcp-config` would swallow a trailing
+positional prompt), suit flags follow, exit codes and signals forward
+(128+signal), temp dir cleaned in a finally plus SIGINT/SIGTERM handlers, stale
+dirs swept on every launch. Acceptance measured live 2026-08-04 with the
+codeword/tool-count method: a sandboxed home (`STRONGSUIT_HOME`), one marker
+skill, ambient directory with ~99 `mcp__` tools — the session answered
+`codeword=CODEWORD-JADE-3311 mcp_count=0` and exited 0, leaving the real
+`~/.claude` and the OS temp dir byte-untouched.
+
 ## Open
 
 - `--agents` and `--plugin-dir` are confirmed present but their isolation was not measured
