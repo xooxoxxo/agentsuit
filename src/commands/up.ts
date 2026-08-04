@@ -51,7 +51,7 @@ export interface UpOptions {
 }
 
 /** Single operation in the journal for rollback. */
-interface JournalEntry {
+export interface JournalEntry {
   type: "link-created" | "link-removed" | "claudemd-written" | "json-entry";
   path: string;
   previousTarget?: string; // For links: the target they pointed to before removal
@@ -276,7 +276,7 @@ async function activateWithRollback(
 /**
  * Reverses all journal entries in LIFO order (last in, first out).
  */
-function rollbackJournal(journal: JournalEntry[]): void {
+export function rollbackJournal(journal: JournalEntry[]): void {
   // Process in reverse order
   for (let i = journal.length - 1; i >= 0; i--) {
     const entry = journal[i];
