@@ -1,51 +1,71 @@
 <p align="center">
-  <img src="assets/logo.png" alt="strongsuit" width="640">
+  <img src="https://raw.githubusercontent.com/xooxoxxo/strongsuit/main/assets/logo.png" alt="strongsuit" width="640">
 </p>
 
 **Agentic suits for Claude Code — dress your agent for the occasion.**
 
-Claude Code warns when installed skills inflate token usage, and the only remedy is deleting and re-downloading them later. `strongsuit` lets you define named sets — `coding`, `marketing`, `legal`, `writing` — and switch between them instantly. Nothing is deleted; switching moves only symlinks and is instantly reversible.
+A **suit** is a named bundle of Claude Code customization: skills, commands, agents, rules, CLAUDE.md fragments, MCP servers, plugins, and hooks. `suit up coding` dresses your agent for the task — atomically, reversibly, without deleting anything. Remote suits go through a **review pipeline** where every component is shown, risk-classed, and individually approved before a byte of it touches your config. And `suit run` puts a suit on **one session only**, leaving your global setup untouched.
 
 ## Quick start
 
-For now, clone and link locally:
 ```bash
-git clone https://github.com/xooxoxxo/strongsuit
-cd strongsuit && npm install && npm run build
-npm link          # gives you the `suit` command
+npm install -g strongsuit         # gives you the `suit` command
+
+suit init                         # adopt existing skills into the library (backup taken first)
+suit new coding --skills docx,pptx,xlsx
+suit up coding                    # activate globally
+suit run writing                  # or: wear a suit for ONE session, no global changes
 ```
 
-Then initialize your library:
-```bash
-suit init                # Move existing skills into the library, replace with symlinks
-suit new coding          # Define a set interactively
-suit use coding          # Activate it
-```
+## Why
 
-**Publishing soon** — `npm install -g strongsuit` will work once published.
+Claude Code loads every installed skill's description into every session, and warns when that inflates token usage — but the only stock remedy is deleting skills and re-downloading them later. And as customization grows past skills into MCP servers, hooks, and plugins, "what is my agent wearing right now" stops having an answer.
+
+strongsuit gives it one. The library holds everything you own, forever. A suit names the subset a task needs. Switching is one command, atomic, and reversible.
 
 ## How it works
 
-The trick: Claude Code reads a *directory* and does not care if entries are real folders or symlinks.
+Claude Code reads *directories* and does not care whether entries are real folders or symlinks:
 
 ```
 ~/.claude/
-├── skills/                          ← Claude Code reads THIS
+├── skills/                           ← Claude Code reads THIS
 │   ├── docx -> ../strongsuit/library/docx
-│   ├── pptx -> ../strongsuit/library/pptx
-│   └── xlsx -> ../strongsuit/library/xlsx
+│   └── pptx -> ../strongsuit/library/pptx
 └── strongsuit/                       ← managed by this CLI
-    ├── library/                     ← real skill folders live here, always
-    │   ├── brand-voice-enforcement/
-    │   │   └── SKILL.md
-    │   ├── docx/
-    │   ├── legal-bd-sidekick/
-    │   ├── pptx/
-    │   └── xlsx/
-    └── sets.json                    ← { "coding": ["docx","pptx","xlsx"], ... }
+    ├── library/                      ← real components live here, always
+    ├── suits/<name>/suit.yaml        ← suit manifests
+    ├── suit.lock                     ← content pins for reviewed components
+    └── ledger.json                   ← ownership record for JSON config writes
 ```
 
-The **library** holds every skill you own. The **active directory** (what Claude Code actually reads) holds only symlinks — one per currently-active skill. A **set** is a named list in `sets.json`. Activating a set means clearing the active directory and relinking exactly those skills. **Nothing is ever deleted from the library.**
+File-based components (skills, commands, agents, rules) activate via symlinks into the library. JSON-based components (MCP servers, plugins, hooks) go through an **ownership ledger**: strongsuit only ever modifies keys it wrote itself, detects foreign edits by hash and refuses to clobber them, backs up every file before first touch, and journals every activation so a failure rolls the whole switch back. Foreign symlinks and unknown config keys are left alone, always.
+
+## The review pipeline
+
+`suit install owner/repo` fetches a remote suit into **quarantine** — nothing exists outside it until reviewed. Every component is printed in full and risk-classed:
+
+- **prompt-surface** (skills, commands, agents, rules, CLAUDE.md) — text that steers your agent; the prompt-injection surface
+- **process/network** (MCP servers, plugins) — things that run processes or talk to the network
+- **code-executing** (hooks) — commands that run the moment an event fires
+
+You approve each component individually. Approvals pin content by hash in `suit.lock`: unchanged content activates silently forever after, while content that drifts — upstream update or local tamper, indistinguishable by design — is **blocked with a diff** until a human re-approves it. `suit sync` re-fetches an installed suit and delta-reviews only what changed. Rejecting a new version never un-approves the one you already vetted.
+
+## Per-session suits
+
+```bash
+suit run writing -- -p "draft the launch post"   # one session wears 'writing'
+echo writing > .suitrc                           # this directory's default suit
+suit run                                         # reads .suitrc (nearest ancestor wins)
+suit resume                                      # resume, re-dressed in the suit it was born with
+```
+
+`suit run` materializes the suit as an ephemeral plugin directory of library symlinks and launches `claude` with it: skills/commands/agents for that session only, and **exactly** the suit's MCP servers via strict config replacement. Zero global mutation; the temp dir is cleaned on exit.
+
+Two honest mechanics, printed at launch rather than papered over:
+
+- **Skills are additive per session** — the session gets the suit *plus* the ambient global/project set. Keep the global set lean if you want sessions close to exclusive.
+- **MCP does not survive a bare resume** — skills replay with the conversation prefix, but MCP flags must be re-applied every launch. strongsuit records every launched session's suit, so `suit resume` and `suit run --continue` re-dress conversations correctly. Bare `claude --resume` gets the ambient config back; no hook can prevent that.
 
 ## Before and after
 
@@ -74,29 +94,35 @@ Token counts are **estimates** (SKILL.md bytes / 4), useful for spotting bloated
 
 ## Safety
 
-- **Nothing is deleted.** Skills live in the library forever. Switching sets moves symlinks only.
-- **The library is never touched during a set switch.** Activating a set changes only the active directory (`~/.claude/skills` globally or `./.claude/skills` per project).
-- **Foreign symlinks are left alone.** The tool only removes symlinks it recognises as managed (first hop into the library). Anything else is reported with a nudge to run `suit init`.
-- **The tool is fully reversible.** An active set can be disabled, re-enabled, or mixed with one-off toggles without side effects.
+- **Nothing is deleted.** Components live in the library forever. Switching moves symlinks and ledgered JSON entries only.
+- **Ownership is absolute.** Symlinks are only removed when their first hop resolves into the library; JSON keys are only touched when the ledger records strongsuit wrote them. Foreign edits are detected by hash and refused, not overwritten.
+- **Everything is journaled.** A failed activation rolls back to the previous state; `suit off` deactivates cleanly.
+- **`suit init` takes a snapshot first.** `suit restore` returns the active directory to its exact pre-init state.
+- **Remote content is quarantined until approved.** Aborting a review leaves your machine byte-identical.
 
 ## Commands
 
 ```bash
-suit init                              # One-time: migrate existing skills into the library
+suit init                              # One-time: migrate existing skills into the library (backup first)
+suit restore                           # Put the active skills dir back to its pre-init state
 suit list                              # Show library with on/off + token estimates
 suit sets                              # List every defined set; mark the currently active one
-suit new <set>                         # Interactive picker to define or edit a set
-suit use <set>                         # Activate a set
+suit new <set> [--skills a,b,c]        # Define a set: interactive picker, or --skills for scripts/CI
+suit up <suit>                         # Atomically activate a suit (use <set> is an alias)
+suit off                               # Deactivate all managed entries
+suit install <source> [--yes]          # Fetch a remote suit (owner/repo[@ref], URL, dir) through review
+suit sync <suit> [--yes]               # Re-fetch; drifted components blocked until re-reviewed
+suit run [suit] [-- <claude args>]     # Launch ONE session wearing the suit (or the nearest .suitrc one)
+suit resume [session-id]               # Resume a conversation re-dressed in the suit it was born with
 suit enable <skill>                    # Turn on one skill (outside any set)
 suit disable <skill>                   # Turn off one skill
 suit add <set> <skill>                 # Add a skill to a set (non-interactive)
 suit remove <set> <skill>              # Remove a skill from a set
 suit import <path> [--as <name>]       # Copy a skill into the library
-suit run [suit] [-- <claude args>]     # Launch ONE session wearing the suit (or the nearest .suitrc one)
-suit resume [session-id]               # Resume a conversation re-dressed in the suit it was born with
+suit completion <shell>                # bash/zsh completion
 ```
 
-All commands except `new` and `import` accept an optional `--project` flag to target `./.claude/skills` (repo-local) instead of the global `~/.claude/skills`. Define sets once; activate them globally or per project.
+Most commands accept `--project` to target `./.claude/skills` (repo-local) instead of the global `~/.claude/skills`. Define suits once; activate them globally or per project.
 
 ### Scripting and CI
 
@@ -112,22 +138,18 @@ Every command is scriptable without a terminal:
 
 - **New sessions read the current state of `.claude/skills`.** Activating, deactivating, or even editing a skill's description are all visible to a session started afterwards.
 - **Resumed sessions keep the skill context from when they started.** A resumed session replays the conversation prefix — including skills — from session creation time. Live mid-conversation switches are **not** visible to the running session.
-- **Practical guidance:** Switch sets, then start a fresh session. New sessions pick up changes instantly; existing and resumed conversations keep the context they started with.
-
-## Where this is going
-
-Suits will grow to bundle not just skills, but MCP servers, plugins, hooks, commands, and agents alongside a mandatory review pipeline for remote installs. Each suit remains a named, atomically-switchable set — one command to dress your agent for the task at hand. For now: skills only, manual not automatic.
+- **Practical guidance:** Switch suits, then start a fresh session — or bind sessions explicitly with `suit run`/`suit resume`, which also keeps MCP isolation intact across resumes.
 
 ## Limitations
 
 - **Token estimates are approximations.** `bytes / 4` over the whole file. Directionally useful for comparing skills, not a precise measurement. Do not present it as a measurement in marketing.
-- **Windows symlink support is incomplete.** `fs.symlinkSync` with the `"dir"` type requires Developer Mode or elevation on Windows. A fallback or workaround is planned before a public release.
+- **Windows uses junctions.** Directory links are created as junctions (no Developer Mode needed); single-file components use file symlinks, which may require Developer Mode or elevation on some setups.
 - **Switching is manual, not automatic.** The tool does not detect what kind of work you are doing and adjust. That is intentional — implicit switching would be unpredictable.
-- **`init` is one-directional.** There is no `unmigrate` command that restores real directories to the active folder. (`suit restore` now covers returning the active dir to its pre-init state.)
-- **Bare `claude --resume` bypasses the suit binding.** Skills survive a resume (the conversation prefix replays), but MCP flags do not — a conversation resumed outside the wrapper silently regains every ambient MCP server. Always resume suit-launched conversations with `suit resume` or `suit run --continue`; no hook can protect a bare resume.
+- **Per-session skills are additive**, not exclusive — see [docs/session-isolation.md](docs/session-isolation.md) for the measured details.
+- **Bare `claude --resume` bypasses the suit binding.** Skills survive a resume, MCP flags do not. Always resume suit-launched conversations with `suit resume` or `suit run --continue`; no hook can protect a bare resume.
 
 ## About
 
-Version 1.1.0. Built with TypeScript, compiles to a standalone CLI. Licensed under MIT.
+Version 1.0.0. Built with TypeScript, compiles to a standalone CLI. Licensed under MIT.
 
-For details on the design, test coverage, and roadmap, see [PROJECT.md](PROJECT.md).
+For details on the design, test coverage, and roadmap, see [PROJECT.md](PROJECT.md). For how per-session isolation was measured (not assumed), see [docs/session-isolation.md](docs/session-isolation.md).
