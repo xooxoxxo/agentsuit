@@ -67,10 +67,12 @@ components:
     - .claude/PROJECT.md
 
   mcp:
-    - server: brave-search
-      config: {}
-    - server: memory
-      config: {}
+    - name: context7
+      command: npx
+      args: ["-y", "@upstash/context7-mcp"]
+    - name: docs-api
+      type: http
+      url: https://mcp.example.com
 
   plugins:
     - superpowers@claude-plugins-official

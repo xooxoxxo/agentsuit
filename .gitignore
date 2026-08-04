@@ -1,3 +1,5 @@
 node_modules/
 dist/
 .claude/
+website/.vitepress/dist/
+website/.vitepress/cache/
