@@ -1,8 +1,13 @@
 # Review
 
-Nothing a suit contains is activated before it has been shown. `suit up` builds
-a review plan, prints every component in full, and takes a decision on each one
-individually. A rejected component is excluded; the rest still activates.
+Review guards the remote boundary: everything fetched by `suit install`/`suit
+sync` is shown in full and decided per component before it can touch the
+machine. Locally-created content (init-adopted skills, imports, hand-written
+manifests) is the user's own and activates without review — it is also never
+pinned, so editing your own files never triggers a drift block. `suit up`
+therefore only intervenes for pinned (remote-approved) content: unchanged pins
+activate silently, drifted pins are blocked. Local hooks still have their full
+command printed at activation — disclosure survives the trust rule.
 
 ## Risk classes
 
