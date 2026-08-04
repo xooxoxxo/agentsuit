@@ -74,14 +74,16 @@ describe("suit run (r1–r3): flags, passthrough, exit code, cleanup", () => {
     expect(code).toBe(0);
     expect(seen!.command).toBe("claude");
     const root = materializedDirFor("focus");
-    expect(seen!.args.slice(0, 5)).toEqual([
+    // Passthrough leads: a positional prompt after the variadic --mcp-config
+    // would be swallowed as another config path (XO-188).
+    expect(seen!.args.slice(0, 4)).toEqual(["--model", "opus", "-p", "hi"]);
+    expect(seen!.args.slice(4)).toEqual([
       "--plugin-dir",
       root,
       "--strict-mcp-config",
       "--mcp-config",
       path.join(root, "mcp.json"),
     ]);
-    expect(seen!.args.slice(-4)).toEqual(["--model", "opus", "-p", "hi"]);
   });
 
   it("forwards the child's exit code", async () => {

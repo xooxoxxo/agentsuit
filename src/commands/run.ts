@@ -121,7 +121,9 @@ export async function runRun(name: string, passthrough: string[] = []): Promise<
       );
     }
 
-    const args = [...mat.flags, ...passthrough];
+    // Passthrough first: --mcp-config is variadic, so a positional prompt
+    // placed after it would be swallowed as another config path (XO-188).
+    const args = [...passthrough, ...mat.flags];
     const result = claudeRunner("claude", args);
     return exitCodeFrom(result);
   } finally {
