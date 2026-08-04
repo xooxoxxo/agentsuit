@@ -12,3 +12,11 @@ if (!process.env.STRONGSUIT_HOME) {
   const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "strongsuit-test-"));
   process.env.STRONGSUIT_HOME = tempHome;
 }
+
+/**
+ * Same net for the materializer's temp root: tests must never create or sweep
+ * dirs in the shared OS temp dir.
+ */
+if (!process.env.STRONGSUIT_TMP) {
+  process.env.STRONGSUIT_TMP = fs.mkdtempSync(path.join(os.tmpdir(), "strongsuit-tmproot-"));
+}
