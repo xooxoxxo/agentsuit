@@ -4,6 +4,7 @@ import ora from "ora";
 import chalk from "chalk";
 import { loadSuit, suitExists, listSuits } from "../suits.js";
 import { onboardingAdvice } from "../onboarding.js";
+import { clearOffOverrides } from "../skill-overrides.js";
 import {
   activateOnlyFor,
   getActiveEntriesFor,
@@ -850,6 +851,19 @@ export async function runUp(
     const { reviewed, hooks: approvedHooks } = await reviewSuit(suitName, scope, options);
     spinner.start();
     const results = await activateWithRollback(suitName, scope, journal, reviewed, approvedHooks);
+
+    // Claude Code's /skills panel toggles ("skillOverrides") beat symlink
+    // presence — a linked skill stays unloaded while its override says off.
+    // The user naming this suit is the consent to flip their own toggle.
+    const linkedSkills = results.find((r) => r.type === "skills")?.linked ?? [];
+    const clearedOverrides = clearOffOverrides(linkedSkills, scope);
+    if (clearedOverrides.length > 0) {
+      console.log(
+        chalk.yellow(
+          `  ⚠ cleared Claude Code /skills "off" toggles for: ${clearedOverrides.join(", ")} — activation wins over the old panel state.`
+        )
+      );
+    }
 
     // Report per-type summary
     const summaryLines: string[] = [];

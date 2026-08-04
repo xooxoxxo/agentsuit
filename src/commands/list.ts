@@ -3,10 +3,12 @@ import { listLibrarySkills } from "../library.js";
 import { getActiveSkillNames } from "../activate.js";
 import type { Scope } from "../activate.js";
 import { printOnboarding } from "../onboarding.js";
+import { offOverrides } from "../skill-overrides.js";
 
 export function runList(scope: Scope): void {
   const skills = listLibrarySkills();
   const active = getActiveSkillNames(scope);
+  const overridden = new Set(offOverrides(skills.map((s) => s.name), scope));
 
   if (skills.length === 0) {
     printOnboarding(scope);
@@ -17,9 +19,11 @@ export function runList(scope: Scope): void {
   for (const skill of skills) {
     const badge = skill.broken
       ? chalk.red("\u2715 bad")
-      : active.has(skill.name)
-        ? chalk.green("\u25cf on ")
-        : chalk.gray("\u25cb off");
+      : active.has(skill.name) && overridden.has(skill.name)
+        ? chalk.yellow("⊘ ovr")
+        : active.has(skill.name)
+          ? chalk.green("\u25cf on ")
+          : chalk.gray("\u25cb off");
 
     const tags = [
       skill.external && !skill.broken ? chalk.blue(" [external]") : "",
@@ -39,6 +43,15 @@ export function runList(scope: Scope): void {
       `\n${activeSkills.length}/${skills.length} active, ~${activeTokens} of ~${totalTokens} tokens loaded\n`
     )
   );
+
+  const contradicted = skills.filter((s) => active.has(s.name) && overridden.has(s.name));
+  if (contradicted.length > 0) {
+    console.log(
+      chalk.yellow(
+        `⊘ ${contradicted.length} linked skill(s) are toggled off in Claude Code /skills and will not load — activating them via 'suit up'/'suit enable' clears the toggle.\n`
+      )
+    );
+  }
 }
 
 function truncate(s: string, n: number): string {
