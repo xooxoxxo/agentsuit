@@ -2,13 +2,14 @@ import chalk from "chalk";
 import { listLibrarySkills } from "../library.js";
 import { getActiveSkillNames } from "../activate.js";
 import type { Scope } from "../activate.js";
+import { printOnboarding } from "../onboarding.js";
 
 export function runList(scope: Scope): void {
   const skills = listLibrarySkills();
   const active = getActiveSkillNames(scope);
 
   if (skills.length === 0) {
-    console.log(chalk.yellow("No skills in the library yet. Run `suit init` first."));
+    printOnboarding(scope);
     return;
   }
 

@@ -2,7 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import ora from "ora";
 import chalk from "chalk";
-import { loadSuit } from "../suits.js";
+import { loadSuit, suitExists, listSuits } from "../suits.js";
+import { onboardingAdvice } from "../onboarding.js";
 import {
   activateOnlyFor,
   getActiveEntriesFor,
@@ -832,6 +833,15 @@ export async function runUp(
   scope: Scope,
   options: UpOptions = {}
 ): Promise<void> {
+  if (!suitExists(suitName)) {
+    const available = listSuits();
+    if (available.length > 0) {
+      throw new Error(`No suit named '${suitName}'. Available: ${available.join(", ")}`);
+    }
+    const advice = onboardingAdvice(scope) ?? [];
+    throw new Error(["No suits defined yet.", ...advice].join("\n"));
+  }
+
   const spinner = ora(`Activating suit "${suitName}"...`);
   const journal: JournalEntry[] = [];
 

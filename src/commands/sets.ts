@@ -2,13 +2,16 @@ import chalk from "chalk";
 import { loadSets } from "../sets.js";
 import { getActiveSkillNames } from "../activate.js";
 import type { Scope } from "../activate.js";
+import { printOnboarding } from "../onboarding.js";
 
 export function runSets(scope: Scope): void {
   const sets = loadSets();
   const names = Object.keys(sets);
 
   if (names.length === 0) {
-    console.log(chalk.yellow("No sets defined yet. Run `suit new <name>` to create one."));
+    if (!printOnboarding(scope)) {
+      console.log(chalk.yellow("No sets defined yet. Run `suit new <name> [--skills a,b]` to create one."));
+    }
     return;
   }
 
