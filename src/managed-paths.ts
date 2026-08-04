@@ -15,6 +15,7 @@ import { settingsPath } from "./hooks.js";
 import { initBackupsDir } from "./backup.js";
 import { quarantineRoot } from "./install.js";
 import { lockPath } from "./lock.js";
+import { sessionsPath } from "./suitrc.js";
 
 /**
  * Every filesystem location the tool may read or write for a scope.
@@ -59,6 +60,8 @@ export function allManagedPaths(scope: "user" | "project"): string[] {
   if (scope === "user") paths.push(quarantineRoot());
   // The lockfile — pins of approved content.
   if (scope === "user") paths.push(lockPath());
+  // The session map — session id → suit bindings for resume.
+  if (scope === "user") paths.push(sessionsPath());
 
   return paths;
 }

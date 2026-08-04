@@ -152,6 +152,21 @@ skill, ambient directory with ~99 `mcp__` tools — the session answered
 `codeword=CODEWORD-JADE-3311 mcp_count=0` and exited 0, leaving the real
 `~/.claude` and the OS temp dir byte-untouched.
 
+## .suitrc binding (XO-193)
+
+`.suitrc` (nearest ancestor, one name, `#` comments) names the suit for new
+sessions; `suit run` with no argument reads it. Every wrapper launch mints a
+session id (`--session-id`) and records id → suit in
+`<root>/sessions.json`, so `suit resume [<id>]` and `suit run --continue`
+re-dress a conversation in the suit it was BORN with — not what the directory
+currently says. Session-lifecycle flags (`--resume`, `-c`, `--session-id`,
+`--fork-session`) are rejected in passthrough because they would bypass the
+map. Measured live 2026-08-04: a `.suitrc` launch answered
+`codeword=CODEWORD-JADE-3311 mcp_count=0`, and `suit resume <id>` of that same
+conversation answered `mcp_count=0` again — the MCP flags were re-applied on
+resume, which claim 12 shows a bare resume loses. The bare-`claude --resume`
+limitation is stated in the README.
+
 ## Open
 
 - `--agents` and `--plugin-dir` are confirmed present but their isolation was not measured

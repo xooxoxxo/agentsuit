@@ -92,6 +92,8 @@ suit disable <skill>                   # Turn off one skill
 suit add <set> <skill>                 # Add a skill to a set (non-interactive)
 suit remove <set> <skill>              # Remove a skill from a set
 suit import <path> [--as <name>]       # Copy a skill into the library
+suit run [suit] [-- <claude args>]     # Launch ONE session wearing the suit (or the nearest .suitrc one)
+suit resume [session-id]               # Resume a conversation re-dressed in the suit it was born with
 ```
 
 All commands except `new` and `import` accept an optional `--project` flag to target `./.claude/skills` (repo-local) instead of the global `~/.claude/skills`. Define sets once; activate them globally or per project.
@@ -111,7 +113,8 @@ Suits will grow to bundle not just skills, but MCP servers, plugins, hooks, comm
 - **Token estimates are approximations.** `bytes / 4` over the whole file. Directionally useful for comparing skills, not a precise measurement. Do not present it as a measurement in marketing.
 - **Windows symlink support is incomplete.** `fs.symlinkSync` with the `"dir"` type requires Developer Mode or elevation on Windows. A fallback or workaround is planned before a public release.
 - **Switching is manual, not automatic.** The tool does not detect what kind of work you are doing and adjust. That is intentional — implicit switching would be unpredictable.
-- **`init` is one-directional.** There is no `unmigrate` command that restores real directories to the active folder.
+- **`init` is one-directional.** There is no `unmigrate` command that restores real directories to the active folder. (`suit restore` now covers returning the active dir to its pre-init state.)
+- **Bare `claude --resume` bypasses the suit binding.** Skills survive a resume (the conversation prefix replays), but MCP flags do not — a conversation resumed outside the wrapper silently regains every ambient MCP server. Always resume suit-launched conversations with `suit resume` or `suit run --continue`; no hook can protect a bare resume.
 
 ## About
 

@@ -14,7 +14,7 @@ import { runMigrate } from "./commands/migrate.js";
 import { runRestore } from "./commands/restore.js";
 import { runInstall } from "./commands/install.js";
 import { runSync } from "./commands/sync.js";
-import { runRun } from "./commands/run.js";
+import { runRun, runResume } from "./commands/run.js";
 import type { Scope } from "./activate.js";
 
 // Everything after a literal `--` is passed through verbatim to the child
@@ -39,7 +39,8 @@ const cli = meow(
     up <suit>                   Atomically activate all entries in a suit manifest
     install <source>            Fetch a remote suit (owner/repo[@ref], URL, or local dir), review it, register it
     sync <suit>                 Re-fetch an installed suit; changed components are blocked until re-reviewed
-    run <suit> [-- <args>]      Launch one Claude session wearing the suit (no global changes)
+    run [suit] [-- <args>]      Launch one Claude session wearing the suit (or the .suitrc one)
+    resume [session-id]         Resume a conversation re-dressed in the suit it was born with
     use <set>                   Alias for 'up' (backward compat); activate a set
     off                         Deactivate all managed entries
     enable <skill>              Activate a single skill without changing set membership
@@ -70,6 +71,7 @@ const cli = meow(
       as: { type: "string" },
       yes: { type: "boolean", default: false },
       approveCodeExecution: { type: "boolean", default: false },
+      continue: { type: "boolean", default: false },
     },
   }
 );
@@ -121,8 +123,10 @@ async function main(): Promise<void> {
       });
       break;
     case "run":
-      requireArg(args[0], "suit name");
-      process.exitCode = await runRun(args[0], passthrough);
+      process.exitCode = await runRun(args[0], passthrough, { continue: cli.flags.continue });
+      break;
+    case "resume":
+      process.exitCode = await runResume(args[0], passthrough);
       break;
     case "up":
       requireArg(args[0], "suit name");

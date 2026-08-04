@@ -1,22 +1,34 @@
 import fs from "node:fs";
 import os from "node:os";
+import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import chalk from "chalk";
-import { loadSuit } from "../suits.js";
+import { loadSuit, type SuitManifest } from "../suits.js";
 import {
   materializeSuit,
   cleanupMaterialized,
   sweepStaleMaterialized,
 } from "../materialize.js";
 import { activeSkillsDir } from "../paths.js";
+import {
+  findSuitrc,
+  readSuitrc,
+  recordSession,
+  sessionById,
+  latestSessionFor,
+} from "../suitrc.js";
 
 /**
- * `suit run <name> [-- <claude args>]` — launch one Claude Code session
+ * `suit run [name] [-- <claude args>]` — launch one Claude Code session
  * wearing the suit, with zero global mutation. The suit is materialized as an
  * ephemeral plugin dir; the session gets exactly the suit's MCP servers
  * (strict replacement) and the suit's skills/commands/agents ON TOP of the
  * ambient global/project set — plugin delivery is additive, which is printed
  * honestly rather than papered over (docs/session-isolation.md, claim 9).
+ *
+ * With no name, the nearest `.suitrc` decides. Every launch mints a session id
+ * and records id → suit, so `suit resume` can re-dress the conversation in the
+ * suit it was born with — MCP flags do not survive a bare resume (claim 12).
  */
 
 export interface ClaudeRunResult {
@@ -57,9 +69,26 @@ function exitCodeFrom(result: ClaudeRunResult): number {
   return 1;
 }
 
-export async function runRun(name: string, passthrough: string[] = []): Promise<number> {
-  const suit = loadSuit(name);
+/** Session-lifecycle flags must go through suit run/resume, not passthrough. */
+const RESERVED_PASSTHROUGH = ["--resume", "-r", "--continue", "-c", "--session-id", "--fork-session"];
 
+function rejectReservedPassthrough(passthrough: string[]): void {
+  const hit = passthrough.find((arg) => RESERVED_PASSTHROUGH.includes(arg));
+  if (hit) {
+    throw new Error(
+      `'${hit}' would bypass the session map, losing the suit binding on resume. ` +
+        `Use 'suit resume [<session-id>]' or 'suit run --continue' instead.`
+    );
+  }
+}
+
+/** Materialize, print the honest UX, launch, forward exit code, clean up. */
+async function launchWearing(
+  suit: SuitManifest,
+  sessionArgs: string[],
+  passthrough: string[],
+  intro: string
+): Promise<number> {
   const swept = sweepStaleMaterialized();
   if (swept.length > 0) {
     console.log(chalk.gray(`Swept ${swept.length} stale session dir(s) from crashed runs.`));
@@ -90,7 +119,7 @@ export async function runRun(name: string, passthrough: string[] = []): Promise<
       .filter(([, n]) => n > 0)
       .map(([label, n]) => `${n} ${label}${n === 1 ? "" : "s"}`)
       .join(", ");
-    console.log(chalk.bold(`Session wears suit '${suit.name}'${worn ? `: ${worn}` : ""}.`));
+    console.log(chalk.bold(`${intro}${worn ? `: ${worn}` : ""}.`));
     console.log(
       chalk.gray(
         "MCP is exclusive: this session gets only the suit's servers. Other sessions and the global config are untouched."
@@ -123,7 +152,7 @@ export async function runRun(name: string, passthrough: string[] = []): Promise<
 
     // Passthrough first: --mcp-config is variadic, so a positional prompt
     // placed after it would be swallowed as another config path (XO-188).
-    const args = [...passthrough, ...mat.flags];
+    const args = [...passthrough, ...sessionArgs, ...mat.flags];
     const result = claudeRunner("claude", args);
     return exitCodeFrom(result);
   } finally {
@@ -135,4 +164,83 @@ export async function runRun(name: string, passthrough: string[] = []): Promise<
       /* refusal here means the root was never ours to delete; nothing to clean */
     }
   }
+}
+
+export interface RunOptions {
+  continue?: boolean;
+}
+
+export async function runRun(
+  name: string | undefined,
+  passthrough: string[] = [],
+  options: RunOptions = {}
+): Promise<number> {
+  if (options.continue) {
+    return runResume(undefined, passthrough);
+  }
+
+  rejectReservedPassthrough(passthrough);
+
+  let suitName = name;
+  if (!suitName) {
+    const rc = findSuitrc(process.cwd());
+    if (!rc) {
+      throw new Error(
+        "No suit named and no .suitrc found in this directory or any ancestor. " +
+          "Run 'suit run <name>' or create a .suitrc naming the suit."
+      );
+    }
+    suitName = readSuitrc(rc);
+    console.log(chalk.gray(`Wearing '${suitName}' per ${rc}`));
+  }
+
+  const suit = loadSuit(suitName);
+  const sessionId = crypto.randomUUID();
+  // Recorded before launch: a crash mid-session must not orphan the binding.
+  recordSession(sessionId, {
+    suit: suitName,
+    cwd: process.cwd(),
+    launchedAt: new Date().toISOString(),
+  });
+
+  return launchWearing(
+    suit,
+    ["--session-id", sessionId],
+    passthrough,
+    `Session wears suit '${suit.name}'`
+  );
+}
+
+export async function runResume(
+  id: string | undefined,
+  passthrough: string[] = []
+): Promise<number> {
+  rejectReservedPassthrough(passthrough);
+
+  let sessionId = id;
+  if (!sessionId) {
+    const latest = latestSessionFor(process.cwd());
+    if (!latest) {
+      throw new Error(
+        "No suit-launched session recorded for this directory. Sessions started with bare 'claude' are not tracked."
+      );
+    }
+    sessionId = latest.id;
+  }
+
+  const record = sessionById(sessionId);
+  if (!record) {
+    throw new Error(
+      `Session ${sessionId} was not launched through 'suit run', so its suit is unknown. ` +
+        "Resume it with bare 'claude --resume' (ambient config) or start a new 'suit run' session."
+    );
+  }
+
+  const suit = loadSuit(record.suit);
+  return launchWearing(
+    suit,
+    ["--resume", sessionId],
+    passthrough,
+    `Re-dressing session ${sessionId.slice(0, 8)} in suit '${suit.name}' (MCP flags re-applied — they do not survive a bare resume)`
+  );
 }
