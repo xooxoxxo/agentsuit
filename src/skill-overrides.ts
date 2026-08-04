@@ -36,7 +36,12 @@ export function clearOffOverrides(names: string[], scope: Scope): string[] {
 
   const backupDir = backupsDir(scope);
   fs.mkdirSync(backupDir, { recursive: true });
-  fs.copyFileSync(file, path.join(backupDir, `settings.json.pre-override-clear`));
+  const backupFile = path.join(backupDir, `settings.json.pre-override-clear`);
+  fs.copyFileSync(file, backupFile);
+  // settings.json can carry secrets (env values, hook commands); the backup
+  // must not be more readable than the original — copyFileSync applies the
+  // umask, not the source mode.
+  fs.chmodSync(backupFile, fs.statSync(file).mode & 0o777);
 
   for (const name of cleared) delete overrides[name];
   const tmp = `${file}.tmp`;

@@ -62,11 +62,17 @@ describe("skillOverrides reconciliation (XO-203)", () => {
     expect(fs.readFileSync(SETTINGS, "utf8")).toBe("{broken");
   });
 
-  it("backs the file up before clearing", () => {
+  it("backs the file up before clearing, preserving its file mode", () => {
     writeSettings({ skillOverrides: { alpha: "off" } });
+    fs.chmodSync(SETTINGS, 0o600);
     clearOffOverrides(["alpha"], "user");
-    const backups = fs.readdirSync(path.join(STRONGSUIT_DIR, "backups"));
-    expect(backups.some((f) => f.startsWith("settings.json"))).toBe(true);
+    const dir = path.join(STRONGSUIT_DIR, "backups");
+    const backup = fs.readdirSync(dir).find((f) => f.startsWith("settings.json"));
+    expect(backup).toBeDefined();
+    if (process.platform !== "win32") {
+      // A 600 settings file must not become world-readable in the backup.
+      expect(fs.statSync(path.join(dir, backup!)).mode & 0o777).toBe(0o600);
+    }
   });
 
   it("offOverrides reports without writing", () => {

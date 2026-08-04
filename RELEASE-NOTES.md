@@ -15,9 +15,9 @@ A named bundle of Claude Code customization: skills, commands, agents, rules, CL
 - **Init backup** — `suit init` snapshots the active directory first; `suit restore` returns it to the pre-init state.
 - **Scriptable** — `suit new <set> --skills a,b,c`, `--yes`, documented exit codes; non-TTY paths fail with guidance instead of hanging.
 
-## ⚠️ `--yes` semantics — read before scripting hook suits
+## ⚠️ Review semantics — read before scripting
 
-`--yes` approves every reviewed component **except code-executing ones**. Hooks run arbitrary commands the moment Claude Code fires the matching event, so they are never bulk-approved: activating a suit that carries hooks non-interactively requires the explicit `--approve-code-execution` flag. `--yes` also never re-approves content that drifted from its approved pin — drift always needs a human.
+Review guards the REMOTE boundary. Content you put on your own machine (init-adopted skills, imports, hand-written manifests) activates without prompts — `suit up` of a local suit asks nothing, and local hooks activate with their full command printed. Content fetched by `suit install`/`suit sync` is always reviewed: `--yes` approves everything there **except code-executing components** (hooks) — those take the separate, explicit `--approve-code-execution` flag — and `--yes` never re-approves content that drifted from its approved pin. Drift always needs a human.
 
 ## Honest limits
 
