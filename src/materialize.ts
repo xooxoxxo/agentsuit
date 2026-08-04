@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { getArtifactType, libraryPathForType } from "./artifact-types.js";
+import { linkDir } from "./fsutil.js";
 import { CLAUDE_HOME } from "./paths.js";
 import { validateMcpServer } from "./mcp.js";
 import { validateHook, toSettingsGroup, type HookEntry } from "./hooks.js";
@@ -111,7 +112,10 @@ function buildMaterialized(root: string, suit: SuitManifest): Materialized {
     fs.mkdirSync(typeDir, { recursive: true });
     for (const name of names) {
       const { source, basename } = resolveLibraryEntry(type, name);
-      fs.symlinkSync(source, path.join(typeDir, basename));
+      const dest = path.join(typeDir, basename);
+      // Junctions for dirs (Windows without Developer Mode), file links for .md entries.
+      if (fs.statSync(source).isDirectory()) linkDir(source, dest);
+      else fs.symlinkSync(source, dest, "file");
     }
   }
 
