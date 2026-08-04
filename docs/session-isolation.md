@@ -121,6 +121,25 @@ claude -p "How many MCP-provided tools (names starting mcp__) are available to y
 `--mcp-config` is variadic, so the prompt must come **before** it or it is swallowed as
 another config path.
 
+## The materializer (XO-191)
+
+`src/materialize.ts` turns a suit manifest into the ephemeral plugin dir described
+above: `<tmp>/strongsuit-run-<suit>-<pid>/` holding `.claude-plugin/plugin.json`,
+symlinks into the library for skills/commands/agents, always an `mcp.json` (empty
+when the suit defines no servers — strict replacement stays deterministic), and a
+`settings.json` when the suit carries hooks. Rules, claudemd fragments and
+marketplace plugins cannot be delivered per session; they are reported in
+`skipped`. Structural behaviour is covered by `test/materialize.test.ts`; the
+end-to-end acceptance is the manual codeword check:
+
+```bash
+# Manual check — a real session accepts the materialized plugin
+node dist/cli.js …  # or: materializeSuit(<suit with one marker skill>) via tsx
+claude -p "Quote the codeword from the marker skill's description verbatim." \
+  --plugin-dir <materialized root>
+# Expected: the codeword, proving the plugin loaded (claims 8/10 measured 2026-07-30)
+```
+
 ## Open
 
 - `--agents` and `--plugin-dir` are confirmed present but their isolation was not measured
