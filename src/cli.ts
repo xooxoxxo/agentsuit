@@ -14,7 +14,15 @@ import { runMigrate } from "./commands/migrate.js";
 import { runRestore } from "./commands/restore.js";
 import { runInstall } from "./commands/install.js";
 import { runSync } from "./commands/sync.js";
+import { runRun } from "./commands/run.js";
 import type { Scope } from "./activate.js";
+
+// Everything after a literal `--` is passed through verbatim to the child
+// process (suit run) and hidden from meow so its flags are not parsed as ours.
+const rawArgv = process.argv.slice(2);
+const ddIndex = rawArgv.indexOf("--");
+const passthrough = ddIndex === -1 ? [] : rawArgv.slice(ddIndex + 1);
+const ownArgv = ddIndex === -1 ? rawArgv : rawArgv.slice(0, ddIndex);
 
 const cli = meow(
   `
@@ -31,6 +39,7 @@ const cli = meow(
     up <suit>                   Atomically activate all entries in a suit manifest
     install <source>            Fetch a remote suit (owner/repo[@ref], URL, or local dir), review it, register it
     sync <suit>                 Re-fetch an installed suit; changed components are blocked until re-reviewed
+    run <suit> [-- <args>]      Launch one Claude session wearing the suit (no global changes)
     use <set>                   Alias for 'up' (backward compat); activate a set
     off                         Deactivate all managed entries
     enable <skill>              Activate a single skill without changing set membership
@@ -55,6 +64,7 @@ const cli = meow(
   `,
   {
     importMeta: import.meta,
+    argv: ownArgv,
     flags: {
       project: { type: "boolean", default: false },
       as: { type: "string" },
@@ -109,6 +119,10 @@ async function main(): Promise<void> {
         yes: cli.flags.yes,
         approveCodeExecution: cli.flags.approveCodeExecution,
       });
+      break;
+    case "run":
+      requireArg(args[0], "suit name");
+      process.exitCode = await runRun(args[0], passthrough);
       break;
     case "up":
       requireArg(args[0], "suit name");
