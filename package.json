@@ -28,6 +28,9 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/cli.ts",
     "test": "vitest run",
+    "docs:dev": "vitepress dev website",
+    "docs:build": "vitepress build website",
+    "docs:preview": "vitepress preview website",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
@@ -42,6 +45,7 @@
     "@types/node": "^22.7.5",
     "tsx": "^4.19.1",
     "typescript": "^5.6.3",
+    "vitepress": "^1.6.3",
     "vitest": "^4.1.10"
   },
   "engines": {
