@@ -35,7 +35,7 @@ const cli = meow(
     restore                     Put the active skills dir back to its pre-init state
     list                        Show every skill in the library and whether it's active
     sets                        Show defined sets and which one (if any) is active
-    new <set>                   Interactively pick skills for a new (or existing) set
+    new <set> [--skills a,b,c]  Define a set: interactive picker, or --skills for scripts/CI
     up <suit>                   Atomically activate all entries in a suit manifest
     install <source>            Fetch a remote suit (owner/repo[@ref], URL, or local dir), review it, register it
     sync <suit>                 Re-fetch an installed suit; changed components are blocked until re-reviewed
@@ -72,6 +72,7 @@ const cli = meow(
       yes: { type: "boolean", default: false },
       approveCodeExecution: { type: "boolean", default: false },
       continue: { type: "boolean", default: false },
+      skills: { type: "string" },
     },
   }
 );
@@ -105,7 +106,12 @@ async function main(): Promise<void> {
       break;
     case "new":
       requireArg(args[0], "set name");
-      await runNew(args[0]);
+      await runNew(args[0], {
+        skills: cli.flags.skills
+          ?.split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+      });
       break;
     case "install":
       requireArg(args[0], "source");

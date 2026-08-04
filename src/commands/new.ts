@@ -3,8 +3,44 @@ import chalk from "chalk";
 import { listLibrarySkills } from "../library.js";
 import { loadSets, saveSets } from "../sets.js";
 
-export async function runNew(setName: string): Promise<void> {
+export interface NewOptions {
+  /** Comma-split skill names for non-interactive set definition. */
+  skills?: string[];
+  /** Test seam; defaults to whether stdin is a TTY. */
+  interactive?: boolean;
+}
+
+export async function runNew(setName: string, options: NewOptions = {}): Promise<void> {
   const skills = listLibrarySkills();
+
+  if (options.skills) {
+    // Non-interactive path: --skills names the full set, validated against the
+    // library. Passing the flag IS the overwrite consent — no prompt.
+    const known = new Set(skills.map((s) => s.name));
+    const unknown = options.skills.filter((name) => !known.has(name));
+    if (unknown.length > 0) {
+      throw new Error(
+        `Unknown skill(s): ${unknown.join(", ")}. ` +
+          (skills.length === 0
+            ? "The library is empty — run 'suit init' first."
+            : `The library has: ${skills.map((s) => s.name).join(", ")}`)
+      );
+    }
+    const sets = loadSets();
+    sets[setName] = options.skills;
+    saveSets(sets);
+    console.log(chalk.green(`Saved set "${setName}" with ${options.skills.length} skill(s).`));
+    return;
+  }
+
+  const interactive = options.interactive ?? Boolean(process.stdin.isTTY);
+  if (!interactive) {
+    throw new Error(
+      `'suit new' needs a terminal to pick skills interactively. ` +
+        `In scripts, pass the full list: suit new ${setName} --skills a,b,c`
+    );
+  }
+
   if (skills.length === 0) {
     console.log(chalk.yellow("Library is empty — run `suit init` first."));
     return;

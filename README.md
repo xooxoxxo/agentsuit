@@ -98,6 +98,16 @@ suit resume [session-id]               # Resume a conversation re-dressed in the
 
 All commands except `new` and `import` accept an optional `--project` flag to target `./.claude/skills` (repo-local) instead of the global `~/.claude/skills`. Define sets once; activate them globally or per project.
 
+### Scripting and CI
+
+Every command is scriptable without a terminal:
+
+- `suit new <set> --skills a,b,c` defines a set non-interactively (the flag names the full set and overwrites without prompting).
+- `suit up/install/sync --yes` accept every reviewed component except code-executing ones (hooks); add `--approve-code-execution` to accept those too. `--yes` never re-approves content that drifted from its approved pin.
+- A command that would need a prompt on a non-TTY without these flags fails with guidance instead of hanging.
+
+**Exit codes:** `0` success; `1` anything else — validation failure, refused review, missing suit/skill, or a child `claude` session's own non-zero exit forwarded by `suit run`/`suit resume` (a signal-killed session maps to `128+signal`).
+
 ## Session behavior
 
 - **New sessions read the current state of `.claude/skills`.** Activating, deactivating, or even editing a skill's description are all visible to a session started afterwards.
