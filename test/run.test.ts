@@ -140,7 +140,7 @@ describe("suit run (r4): zero global mutation", () => {
     const after = fingerprint(CLAUDE_HOME);
     const changed = after.filter((line) => !before.includes(line));
     expect(changed).toHaveLength(1);
-    expect(changed[0]).toMatch(/^strongsuit\/sessions\.json /);
+    expect(changed[0]).toMatch(/^strongsuit[\\/]sessions\.json /);
     expect(before.filter((line) => !after.includes(line))).toEqual([]);
   });
 });
