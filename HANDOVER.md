@@ -44,7 +44,7 @@ Remaining, in dependency order:
 | M6 leftovers | XO-196 (MCP rollback test gap, see below) |
 | M7 Remote + review | COMPLETE — XO-183 review + XO-184 install + XO-185 lockfile + XO-156 non-interactive + XO-158 onboarding all shipped |
 | M7.5 Per-session suits | COMPLETE — XO-191 materializer + XO-192 `suit run` + XO-193 `.suitrc`/session-map binding all shipped |
-| M8 Launch | XO-145 publish (blocked by everything above) |
+| M8 Launch | XO-145 publish — pipeline + README + notes READY on this branch; awaiting NPM_TOKEN secret + name-lock decision + tag push (see RELEASING.md) |
 | M9 Post-launch | XO-146/147 suggest+find, 148 status, 149 doctor, 150 `up --add`, 152 `--purge` polish (backup+restore shipped pre-release), 153 website, 159 export/import, 160 scaffold, 186 permissions/env, 187 review L2 |
 
 XO-151 was superseded by XO-193 and closed when it landed.
