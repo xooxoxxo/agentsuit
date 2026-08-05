@@ -3,6 +3,7 @@ import { listLibrarySkills } from "../library.js";
 import { getActiveSkillNames } from "../activate.js";
 import type { Scope } from "../activate.js";
 import { printOnboarding } from "../onboarding.js";
+import { printArrivalNotice } from "./adopt.js";
 import { offOverrides } from "../skill-overrides.js";
 
 export function runList(scope: Scope): void {
@@ -43,6 +44,8 @@ export function runList(scope: Scope): void {
       `\n${activeSkills.length}/${skills.length} active, ~${activeTokens} of ~${totalTokens} tokens loaded\n`
     )
   );
+
+  printArrivalNotice(scope);
 
   const contradicted = skills.filter((s) => active.has(s.name) && overridden.has(s.name));
   if (contradicted.length > 0) {
