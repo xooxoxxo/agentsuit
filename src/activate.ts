@@ -340,15 +340,21 @@ export function activateOnlyFor(
   const skipped: string[] = [];
 
   for (const name of names) {
-    const libPath = path.join(libraryDir, name);
+    // File components may live as <name> or <name>.md in their section.
+    let entryName = name;
+    let libPath = path.join(libraryDir, name);
+    if (!fs.existsSync(libPath) && fs.existsSync(path.join(libraryDir, `${name}.md`))) {
+      entryName = `${name}.md`;
+      libPath = path.join(libraryDir, entryName);
+    }
     if (!fs.existsSync(libPath)) {
       skipped.push(name);
       continue;
     }
-    const linkPath = path.join(activeDir, name);
+    const linkPath = path.join(activeDir, entryName);
     if (lstatOrNull(linkPath)) continue; // already occupied
     linkDir(libPath, linkPath);
-    linked.push(name);
+    linked.push(entryName);
   }
 
   return { linked, skipped, foreign };
