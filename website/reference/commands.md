@@ -29,11 +29,17 @@ All defined sets (suits), the currently active one marked.
 
 ## Defining suits
 
-### `suit new <name> [--skills a,b,c]`
-Interactive picker, or `--skills` for scripts — the flag names the full list, validates every name against the library, and overwrites without prompting (the flag is the consent). Without a TTY and without `--skills`, fails with guidance instead of hanging.
+### `suit tailor <name> [flags]`
+THE edit command. No flags: interactive picker, pre-checked with the suit's current members (creates or alters). Scripts: `--skills a,b,c` replaces the whole list, `--add x,y`/`--remove z` merge changes — all validated against the library. `new`, `add`, `remove` are aliases onto this. MCP servers, plugins and hooks: edit the suit's `suit.yaml` directly.
 
-### `suit add <set> <skill>` / `suit remove <set> <skill>`
-Edit a suit's skill list non-interactively.
+### `suit show <name>`
+The full manifest, human-shaped: skills with live on/off state, commands/agents/rules with resolution checks, MCP servers, plugins, hooks with their full commands. Components that no longer resolve in the library (uninstalled later) are flagged red; `suit up` will skip those with a warning.
+
+### `suit status [--short]`
+Orientation: what you're wearing globally (exact-match suit, or mixed/none, with token estimate and a leaner-set warning past ~2000), what this directory's `.suitrc` wants, the latest suit-launched session here, and attention items — skills toggled off in Claude Code's `/skills` panel, external arrivals, dangling components. `--short` prints one plain line for shell prompts: `coding · 3/12 · ~61tok`.
+
+### `suit adopt [--to <suit>]`
+Skills installed by other tools (Claude Code marketplace, `npx skills`, hand-copied) appear as real directories among strongsuit's symlinks — `list`/`up` notice them in one line, and `adopt` libraries them (snapshot first) and optionally tailors them into a suit.
 
 ### `suit import <path> [--as <name>]`
 Copies an external skill folder into the library.
