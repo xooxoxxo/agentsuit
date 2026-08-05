@@ -5,6 +5,7 @@ import chalk from "chalk";
 import { loadSuit, suitExists, listSuits } from "../suits.js";
 import { onboardingAdvice } from "../onboarding.js";
 import { clearOffOverrides } from "../skill-overrides.js";
+import { printArrivalNotice } from "./adopt.js";
 import {
   activateOnlyFor,
   getActiveEntriesFor,
@@ -892,6 +893,7 @@ export async function runUp(
         )
       );
     }
+    printArrivalNotice(scope);
 
     // Report per-type summary
     const summaryLines: string[] = [];

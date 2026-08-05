@@ -6,6 +6,7 @@ import { runSets } from "./commands/sets.js";
 import { runNew } from "./commands/new.js";
 import { runTailor } from "./commands/tailor.js";
 import { runShow } from "./commands/show.js";
+import { runAdopt } from "./commands/adopt.js";
 import { runUse } from "./commands/use.js";
 import { runUp, runOff } from "./commands/up.js";
 import { runEnable, runDisable } from "./commands/toggle.js";
@@ -34,6 +35,7 @@ const cli = meow(
   ${chalk.bold("The closet")} — what you own
     install <source> [--yes]    Fetch a remote suit (owner/repo[@ref], URL, dir) through quarantine + review
     import <path> [--as name]   Copy a local skill folder into the library
+    adopt [--to <suit>]         Library skills that arrived via other installers (marketplace, npx skills)
     list                        Show every skill in the library and whether it's active
 
   ${chalk.bold("The tailor")} — shaping suits
@@ -88,6 +90,7 @@ const cli = meow(
       skills: { type: "string" },
       add: { type: "string" },
       remove: { type: "string" },
+      to: { type: "string" },
     },
   }
 );
@@ -125,6 +128,9 @@ async function main(): Promise<void> {
       break;
     case "sets":
       runSets(scope);
+      break;
+    case "adopt":
+      await runAdopt(scope, { to: cli.flags.to });
       break;
     case "show":
       requireArg(args[0], "suit name");
