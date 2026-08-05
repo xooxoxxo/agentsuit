@@ -5,6 +5,7 @@ import { runList } from "./commands/list.js";
 import { runSets } from "./commands/sets.js";
 import { runNew } from "./commands/new.js";
 import { runTailor } from "./commands/tailor.js";
+import { runShow } from "./commands/show.js";
 import { runUse } from "./commands/use.js";
 import { runUp, runOff } from "./commands/up.js";
 import { runEnable, runDisable } from "./commands/toggle.js";
@@ -37,6 +38,7 @@ const cli = meow(
 
   ${chalk.bold("The tailor")} — shaping suits
     tailor <suit> [flags]       THE edit command: interactive picker, or --skills a,b / --add x --remove y
+    show <suit>                 Full manifest: every component, active state, dangling entries flagged
     sets                        Show defined suits and which one (if any) is active
 
   ${chalk.bold("Wear globally")} — your default outfit, every new session
@@ -123,6 +125,10 @@ async function main(): Promise<void> {
       break;
     case "sets":
       runSets(scope);
+      break;
+    case "show":
+      requireArg(args[0], "suit name");
+      runShow(args[0], scope);
       break;
     case "tailor":
     case "new":

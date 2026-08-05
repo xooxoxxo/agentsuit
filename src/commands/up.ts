@@ -903,7 +903,7 @@ export async function runUp(
       }
       if (result.skipped.length > 0) {
         summaryLines.push(
-          `  ${chalk.yellow("⊘")} ${result.type} skipped: ${result.skipped.join(", ")}`
+          `  ${chalk.yellow("⊘")} ${result.type} skipped — missing from library (uninstalled?): ${result.skipped.join(", ")}`
         );
       }
       if (result.foreign.length > 0) {
