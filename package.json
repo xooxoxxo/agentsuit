@@ -1,7 +1,7 @@
 {
   "name": "strongsuit",
   "version": "1.0.0",
-  "description": "Strongly-typed agentic skills for Claude Code — dress for the occasion: named, atomically-switchable collections (MCP, plugins, hooks coming)",
+  "description": "Agentic suits for Claude Code — skills, MCP servers, plugins and hooks as named, atomically-switchable suits with a review pipeline for remote installs",
   "type": "module",
   "license": "MIT",
   "repository": {

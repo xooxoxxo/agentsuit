@@ -4,11 +4,12 @@ import chalk from "chalk";
 import { runList } from "./commands/list.js";
 import { runSets } from "./commands/sets.js";
 import { runNew } from "./commands/new.js";
+import { runTailor } from "./commands/tailor.js";
 import { runUse } from "./commands/use.js";
 import { runUp, runOff } from "./commands/up.js";
 import { runEnable, runDisable } from "./commands/toggle.js";
 import { runInit } from "./commands/init.js";
-import { runAdd, runRemove, runImport } from "./commands/add-remove.js";
+import { runImport } from "./commands/add-remove.js";
 import { runCompletion } from "./commands/completion.js";
 import { runMigrate } from "./commands/migrate.js";
 import { runRestore } from "./commands/restore.js";
@@ -29,39 +30,49 @@ const cli = meow(
   ${chalk.bold("Usage")}
     $ suit <command> [args] [--project]
 
-  ${chalk.bold("Commands")}
-    migrate                     Relocate legacy ~/.claude/skillsets or ~/.claude/agentsuit to ~/.claude/strongsuit
-    init                        Migrate real skill dirs in the active folder into a managed library (takes a backup first)
-    restore                     Put the active skills dir back to its pre-init state
+  ${chalk.bold("The closet")} — what you own
+    install <source> [--yes]    Fetch a remote suit (owner/repo[@ref], URL, dir) through quarantine + review
+    import <path> [--as name]   Copy a local skill folder into the library
     list                        Show every skill in the library and whether it's active
-    sets                        Show defined sets and which one (if any) is active
-    new <set> [--skills a,b,c]  Define a set: interactive picker, or --skills for scripts/CI
+
+  ${chalk.bold("The tailor")} — shaping suits
+    tailor <suit> [flags]       THE edit command: interactive picker, or --skills a,b / --add x --remove y
+    sets                        Show defined suits and which one (if any) is active
+
+  ${chalk.bold("Wear globally")} — your default outfit, every new session
     up <suit>                   Atomically activate all entries in a suit manifest
-    install <source>            Fetch a remote suit (owner/repo[@ref], URL, or local dir), review it, register it
-    sync <suit>                 Re-fetch an installed suit; changed components are blocked until re-reviewed
-    run [suit] [-- <args>]      Launch one Claude session wearing the suit (or the .suitrc one)
-    resume [session-id]         Resume a conversation re-dressed in the suit it was born with
-    use <set>                   Alias for 'up' (backward compat); activate a set
     off                         Deactivate all managed entries
-    enable <skill>              Activate a single skill without changing set membership
-    disable <skill>             Deactivate a single skill without changing set membership
-    add <set> <skill>           Add a skill to a set's definition
-    remove <set> <skill>        Remove a skill from a set's definition
-    import <path> [--as name]   Copy an external skill folder into the library
-    completion <shell>          Print shell completion script (bash or zsh)
+    sync <suit>                 Re-fetch an installed suit; changed components blocked until re-reviewed
+    enable/disable <skill>      One-off toggle without changing any suit
+
+  ${chalk.bold("Wear for one session")} — one meeting, nothing global changes
+    run [suit] [-- <args>]      Launch one Claude session wearing the suit (or the nearest .suitrc one)
+    resume [session-id]         Resume a conversation re-dressed in the suit it was born with
+
+  ${chalk.bold("Safety")}
+    init                        One-time: adopt existing skills into the library (backup taken first)
+    restore                     Put the active skills dir back to its pre-init state
+    migrate                     Relocate a legacy skillsets/agentsuit root to strongsuit
+    completion <shell>          Print shell completion (bash or zsh)
+
+  ${chalk.bold("Aliases")} (older names, still work)
+    new <set> [--skills a,b]    = tailor    ·    use <set> = up    ·    add/remove <set> <skill> = tailor --add/--remove
 
   ${chalk.bold("Flags")}
-    --project     Operate on ./.claude/skills instead of ~/.claude/skills
-    --as <name>   Used with "import" to rename the skill in the library
-    --yes                     Approve every component except code-executing ones (all are still printed)
+    --project     Operate on ./.claude/* instead of ~/.claude/*
+    --skills a,b,c            tailor/new: replace the suit's skill list (validated, no prompt)
+    --add a,b / --remove c    tailor: merge changes into the skill list
+    --as <name>   import: rename the skill in the library
+    --yes                     Approve reviewed remote components except code-executing ones
     --approve-code-execution  Also approve hooks and other code-executing components
+    --continue                run: resume the latest suit-launched session here
 
   ${chalk.bold("Examples")}
     $ suit init
-    $ suit new coding
-    $ suit use coding
-    $ suit use marketing --project
-    $ suit disable pdf
+    $ suit tailor coding --skills docx,pptx
+    $ suit up coding                  # default outfit
+    $ suit run writing -- -p "draft"  # one session only
+    $ echo coding > .suitrc && suit run
   `,
   {
     importMeta: import.meta,
@@ -73,12 +84,21 @@ const cli = meow(
       approveCodeExecution: { type: "boolean", default: false },
       continue: { type: "boolean", default: false },
       skills: { type: "string" },
+      add: { type: "string" },
+      remove: { type: "string" },
     },
   }
 );
 
 const scope: Scope = cli.flags.project ? "project" : "user";
 const [command, ...args] = cli.input;
+
+function splitList(value: string | undefined): string[] | undefined {
+  return value
+    ?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 function requireArg(value: string | undefined, label: string): asserts value is string {
   if (!value) {
@@ -104,13 +124,13 @@ async function main(): Promise<void> {
     case "sets":
       runSets(scope);
       break;
+    case "tailor":
     case "new":
-      requireArg(args[0], "set name");
-      await runNew(args[0], {
-        skills: cli.flags.skills
-          ?.split(",")
-          .map((s) => s.trim())
-          .filter(Boolean),
+      requireArg(args[0], "suit name");
+      await runTailor(args[0], {
+        skills: splitList(cli.flags.skills),
+        add: splitList(cli.flags.add) ?? [],
+        remove: splitList(cli.flags.remove) ?? [],
       });
       break;
     case "install":
@@ -161,14 +181,14 @@ async function main(): Promise<void> {
       runDisable(args[0], scope);
       break;
     case "add":
-      requireArg(args[0], "set name");
+      requireArg(args[0], "suit name");
       requireArg(args[1], "skill name");
-      runAdd(args[0], args[1]);
+      await runTailor(args[0], { add: [args[1]] });
       break;
     case "remove":
-      requireArg(args[0], "set name");
+      requireArg(args[0], "suit name");
       requireArg(args[1], "skill name");
-      runRemove(args[0], args[1]);
+      await runTailor(args[0], { remove: [args[1]] });
       break;
     case "import":
       requireArg(args[0], "path");
