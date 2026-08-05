@@ -107,7 +107,10 @@ suit init                              # One-time: migrate existing skills into 
 suit restore                           # Put the active skills dir back to its pre-init state
 suit list                              # Show library with on/off + token estimates
 suit sets                              # List every defined set; mark the currently active one
-suit new <set> [--skills a,b,c]        # Define a set: interactive picker, or --skills for scripts/CI
+suit tailor <suit> [flags]             # THE edit command: picker, or --skills a,b / --add x --remove y
+suit show <suit>                       # Full manifest: active state, dangling components flagged
+suit status [--short]                  # Where am I: worn suit, .suitrc here, session, attention items
+suit adopt [--to <suit>]               # Library skills installed by other tools (marketplace, npx skills)
 suit up <suit>                         # Atomically activate a suit (use <set> is an alias)
 suit off                               # Deactivate all managed entries
 suit install <source> [--yes]          # Fetch a remote suit (owner/repo[@ref], URL, dir) through review
@@ -116,8 +119,6 @@ suit run [suit] [-- <claude args>]     # Launch ONE session wearing the suit (or
 suit resume [session-id]               # Resume a conversation re-dressed in the suit it was born with
 suit enable <skill>                    # Turn on one skill (outside any set)
 suit disable <skill>                   # Turn off one skill
-suit add <set> <skill>                 # Add a skill to a set (non-interactive)
-suit remove <set> <skill>              # Remove a skill from a set
 suit import <path> [--as <name>]       # Copy a skill into the library
 suit completion <shell>                # bash/zsh completion
 ```

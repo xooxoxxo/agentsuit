@@ -47,8 +47,8 @@ Every skill shows on/off state and an estimated token cost — that's what its d
 ## 2. Define your first suit
 
 ```bash
-suit new coding --skills docx,pptx,xlsx     # scriptable
-suit new coding                             # or the interactive picker
+suit tailor coding --skills docx,pptx,xlsx  # scriptable
+suit tailor coding                          # or the interactive picker
 ```
 
 A suit is stored as a YAML manifest at `~/.claude/strongsuit/suits/coding/suit.yaml`. Skills are just the beginning — see [Suits](/guide/suits) for adding MCP servers, plugins, and hooks to the same manifest.
