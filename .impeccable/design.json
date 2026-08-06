@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-06T00:00:00Z",
+  "title": "Design System: strongsuit",
+  "extensions": {
+    "colorMeta": {
+      "ink": {
+        "role": "neutral",
+        "displayName": "Near-Black Ground",
+        "canonical": "#0d0c0a",
+        "tonalRamp": ["#0d0c0a", "#141211", "#1a1816", "#21201d", "#282723", "#2f2e2a", "#363531", "#3d3c38"]
+      },
+      "ink-light": {
+        "role": "neutral",
+        "displayName": "Lighter Near-Black",
+        "canonical": "#14120f",
+        "tonalRamp": ["#0d0c0a", "#141211", "#1a1816", "#21201d", "#282723", "#2f2e2a", "#363531", "#3d3c38"]
+      },
+      "gold": {
+        "role": "primary",
+        "displayName": "Bullion Gold",
+        "canonical": "#e0a82e",
+        "tonalRamp": ["#8a6420", "#a07a28", "#b69130", "#cca838", "#e0a82e", "#e8b547", "#f0bd4a", "#f5d061"]
+      },
+      "gold-deep": {
+        "role": "primary",
+        "displayName": "Deep Gold",
+        "canonical": "#b28414",
+        "tonalRamp": ["#6b4f0c", "#845f12", "#9d7019", "#b28414", "#c9931f", "#d8a52e", "#e8b547", "#f0bd4a"]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Cream Paper",
+        "canonical": "#f3ecdc",
+        "tonalRamp": ["#f3ecdc", "#eed9be", "#e8c5a0", "#e1b181", "#d99d63", "#d18944", "#c87526", "#bf6108"]
+      },
+      "paper-ink": {
+        "role": "neutral",
+        "displayName": "Paper Ink",
+        "canonical": "#221d14",
+        "tonalRamp": ["#0d0c0a", "#141211", "#1a1816", "#21201d", "#282723", "#2f2e2a", "#363531", "#3d3c38"]
+      },
+      "text-primary": {
+        "role": "neutral",
+        "displayName": "Text Primary",
+        "canonical": "#efe9db",
+        "tonalRamp": ["#6b6659", "#79726b", "#878076", "#959085", "#a39e95", "#b1aca5", "#bfb9b5", "#ccc8c4"]
+      },
+      "thread": {
+        "role": "neutral",
+        "displayName": "Thread (Gold, 28% opacity)",
+        "canonical": "rgba(224, 168, 46, 0.28)",
+        "tonalRamp": []
+      },
+      "hair": {
+        "role": "neutral",
+        "displayName": "Hair (Cream, 16% opacity)",
+        "canonical": "rgba(243, 236, 220, 0.16)",
+        "tonalRamp": []
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Masthead \"STRONGSUIT\" only. Fills viewport width on first load; scales fluidly on smaller screens."
+      },
+      "tagline": {
+        "displayName": "Tagline",
+        "purpose": "\"Dress your agent for the occasion.\" Italic, always gold, positioned below masthead."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section titles (\"Look 01 Coding\", \"The fitting\"). Gold label above in Archivo uppercase."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Prose paragraphs and standfirst text. Max-width 68ch for readability. Warm cream (#efe9db) on dark backgrounds."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Category markers (\"Look 01\", \"Care label\"). Always gold on dark, or dark on cream/gold backgrounds. Uppercase, tracked."
+      },
+      "mono": {
+        "displayName": "Monospace",
+        "purpose": "Terminal examples, code snippets, inline code. Never for prose or UI labels. System stack (SF Mono, Menlo, Consolas)."
+      }
+    },
+    "motion": [
+      {
+        "name": "settle",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "The one authored animation. Looks settle in opacity and translateY on scroll via animation-timeline: view(). Entry 0%–42% for body, 8%–50% for spec strips. Respects prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "tablet",
+        "value": "860px",
+        "purpose": "Look grids stack to single column. Spec strips max 26rem width. Logo moves from absolute to static."
+      },
+      {
+        "name": "mobile",
+        "value": "480px",
+        "purpose": "Nav and CTA gaps reduce. Terminal blocks and buttons shrink. Font sizes remain fluid via clamp()."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Button Primary",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Bold, uppercase gold button. Strategic accent for CTAs.",
+      "html": "<a class=\"ds-btn-primary\" href=\"#get-started\">Get started</a>",
+      "css": ".ds-btn-primary { display: inline-block; background: #e0a82e; color: #0d0c0a; font-family: 'Archivo', system-ui, sans-serif; font-weight: 700; font-size: 0.9rem; letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none; padding: 0.95rem 2.2rem; border: none; border-radius: 0; transition: background 160ms cubic-bezier(0.16, 1, 0.3, 1), transform 160ms cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer; } .ds-btn-primary:hover, .ds-btn-primary:focus-visible { background: #f0bd4a; transform: translateY(-1px); } .ds-btn-primary:focus-visible { outline: 2px solid #e0a82e; outline-offset: 3px; }"
+    },
+    {
+      "name": "Button Ghost",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary CTA with gold underline. Lower visual weight than primary button.",
+      "html": "<a class=\"ds-btn-ghost\" href=\"https://github.com/xooxoxxo/strongsuit\">Read the source</a>",
+      "css": ".ds-btn-ghost { font-family: 'Archivo', system-ui, sans-serif; font-size: 0.82rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none; color: rgba(239, 233, 219, 0.7); border-bottom: 1px solid rgba(224, 168, 46, 0.28); padding-bottom: 2px; transition: color 160ms, border-color 160ms; } .ds-btn-ghost:hover, .ds-btn-ghost:focus-visible { color: #e0a82e; border-bottom-color: #e0a82e; } .ds-btn-ghost:focus-visible { outline: 2px solid #e0a82e; outline-offset: 3px; }"
+    },
+    {
+      "name": "Spec Strip",
+      "kind": "card",
+      "refersTo": "card-spec",
+      "description": "Cream paper garment-tag detail. Used for metadata and supporting specs alongside Looks.",
+      "html": "<aside class=\"ds-spec\"><p class=\"ds-spec-head\">Composition</p><dl><div><dt>Skills</dt><dd>3</dd></div><div><dt>MCP servers</dt><dd>0</dd></div></dl><p class=\"ds-spec-note\">Sample wardrobe. Yours will differ.</p></aside>",
+      "css": ".ds-spec { background: #f3ecdc; color: #221d14; padding: 1.4rem 1.5rem 1.1rem; border: 1px solid rgba(34, 29, 20, 0.3); border-left-style: dashed; border-right-style: dashed; position: relative; } .ds-spec::before { content: ''; position: absolute; top: 0.65rem; left: 50%; width: 7px; height: 7px; border: 1px solid rgba(34, 29, 20, 0.45); border-radius: 50%; transform: translateX(-50%); } .ds-spec-head { font-family: 'Archivo', system-ui, sans-serif; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.26em; text-transform: uppercase; text-align: center; margin: 0.6rem 0 1rem; padding-bottom: 0.7rem; border-bottom: 1px solid rgba(34, 29, 20, 0.25); } .ds-spec dl { margin: 0; } .ds-spec dl div { display: flex; justify-content: space-between; gap: 1rem; padding: 0.42rem 0; border-bottom: 1px dotted rgba(34, 29, 20, 0.3); font-size: 0.85rem; } .ds-spec dt { font-weight: 600; letter-spacing: 0.04em; } .ds-spec dd { margin: 0; text-align: right; } .ds-spec-note { font-family: 'Bodoni Moda', Georgia, serif; font-style: italic; font-size: 0.85rem; color: rgba(34, 29, 20, 0.65); margin: 0.9rem 0 0; text-align: center; }"
+    },
+    {
+      "name": "Terminal Block",
+      "kind": "custom",
+      "refersTo": "terminal-block",
+      "description": "Monospace code/command block. The one place mono typography lives. Dark ink-2 with gold-thread border.",
+      "html": "<pre class=\"ds-term\" aria-label=\"Terminal example\"><code>$ suit up coding\n✓ skills: docx, pptx, xlsx\nSuit \"coding\" active.</code></pre>",
+      "css": ".ds-term { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.86rem; line-height: 1.55; background: #14120f; color: #e6dfcd; border: 1px solid rgba(224, 168, 46, 0.28); padding: 1.1rem 1.3rem; margin: 0; overflow-x: auto; border-radius: 0; } .ds-term code { font-family: inherit; background: none; padding: 0; font-size: inherit; color: inherit; }"
+    },
+    {
+      "name": "Navigation Link",
+      "kind": "nav",
+      "refersTo": "link-underline",
+      "description": "Header and footer navigation. Uppercase tracked label with subtle gold underline on hover.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Site\"><a href=\"/strongsuit/guide/getting-started.html\">Docs</a><a href=\"https://github.com/xooxoxxo/strongsuit\">GitHub</a></nav>",
+      "css": ".ds-nav { display: flex; gap: 1.75rem; } .ds-nav a { font-family: 'Archivo', system-ui, sans-serif; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; text-decoration: none; color: inherit; border-bottom: 1px solid transparent; padding-bottom: 2px; transition: color 160ms, border-bottom-color 160ms; } .ds-nav a:hover, .ds-nav a:focus-visible { border-bottom-color: #e0a82e; } .ds-nav a:focus-visible { outline: 2px solid #e0a82e; outline-offset: 3px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Menswear Lookbook",
+    "overview": "The strongsuit landing is designed as a fashion collection lookbook, treating agent customization like tailored suiting. The visual world is deliberately print-influenced: near-black grounds anchor gold accents that own complete sections, cream paper spec strips mimic garment tags, and a single typeface pairing (Bodoni Moda + Archivo) carries both editorial presence and functional clarity. The form refuses the dark-SaaS formula (hero + six feature cards) in favor of a narrative sequence of three numbered \"Looks\" showing real usage patterns, with a front-and-center \"care label\" stating honest limits before features. Flat surfaces, hairline borders, and tonal layering replace shadows—a print grammar applied to web.",
+    "keyCharacteristics": [
+      "Print-influenced grid and fabric treatment (spec strips as garment tags)",
+      "Gold accent is precious and rare (~10% of surface area)",
+      "Two-tone structure: dark backgrounds with cream spec strips, or full-spread gold sections",
+      "Honest-limits-first content ordering (care label before features)",
+      "Fluid typography that scales with viewport; no fixed breakpoints in the type itself"
+    ],
+    "rules": [
+      {
+        "name": "The Rare Accent Rule",
+        "body": "Gold is strategic, not ambient. It lives in section labels, taglines, CTA buttons, and as full-spread backgrounds (Looks 02, for instance). Nowhere else. The rarity keeps it memorable and signals genuine interaction points.",
+        "section": "colors"
+      },
+      {
+        "name": "The Spec-Strip Rule",
+        "body": "Cream paper sections (the care label, spec metadata in the looks) are always visually separated as horizontal bands with dashed left/right borders, mimicking garment labels. These break the dark-gold pattern and introduce a distinct, supporting voice.",
+        "section": "colors"
+      },
+      {
+        "name": "The Typeface Commitment Rule",
+        "body": "Bodoni Moda is non-negotiable for display and primary headlines. It carries the editorial voice and print identity. Archivo is the workhorse; all UI labels, body prose, and functional text use it (never mixing serif for body). Mono is reserved for code blocks and terminal output—never for prose or labels.",
+        "section": "typography"
+      },
+      {
+        "name": "The Fluid Scale Rule",
+        "body": "All display and headline sizes use `clamp()` with viewport-responsive minimums and maximums. No media-query breakpoints for type. Labels and body prose are similarly fluid to maintain rhythm across all viewport sizes.",
+        "section": "typography"
+      },
+      {
+        "name": "The No-Shadow Rule",
+        "body": "The system is entirely flat. Depth comes from background color change, opacity variation, and hairline borders—the print grammar of a lookbook. Hover states on buttons use `transform: translateY(-1px)` for a subtle lift, but never `box-shadow`.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Hair-Border Rule",
+        "body": "Section dividers and subtle boundaries are 1px solid in cream at 16% opacity (`rgba(243, 236, 220, 0.16)`). Stronger accent borders use gold at 28% opacity. No gradient or feathered edges.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use Bodoni Moda for all display and headline copy. Its Didone weight carries the editorial voice.",
+      "Do use gold for strategic accents only: section labels, taglines, CTA buttons, and as full-spread background colors on alternating Looks. Never more than ~10% of any surface.",
+      "Do add hairline borders (1px) in cream at 16% opacity to separate major sections and create vertical rhythm.",
+      "Do use the spec strip (cream paper card with dashed borders and anchor dot) for metadata and supporting detail. It is the signature component.",
+      "Do keep prose max-width at 68ch for readability. Use `clamp()` for all type sizes to maintain fluid scaling across viewports.",
+      "Do use cream (#efe9db) for text on dark backgrounds, not pure white. It pairs with the gold and warm paper tones.",
+      "Do apply the one authored motion moment: looks settle in on scroll via `animation-timeline: view()` with a subtle opacity and translateY. Respect `prefers-reduced-motion`."
+    ],
+    "donts": [
+      "Don't add drop shadows or `box-shadow` anywhere. The system is flat with tonal layering only.",
+      "Don't use monospace font for prose, labels, or UI text. Mono is reserved for terminal examples and code snippets.",
+      "Don't mix rounded corners across components. Keep corners sharp (0px) except for 3px on inline code tags.",
+      "Don't use more than the committed typeface pair (Bodoni Moda + Archivo). No display sans-serif.",
+      "Don't apply transitions or animations to anything except buttons (on background/transform) and the scroll-triggered settle animation on Looks. No slide-ins, no fade-in cascade.",
+      "Don't increase the color palette. The nine named colors (ink, ink-light, gold, gold-deep, paper, paper-ink, text variants, thread, hair) are the complete system. No secondary or tertiary accent colors.",
+      "Don't break the print grammar by using GUIs, bevels, gradients, or depth effects. The aesthetic is flat and editorial."
+    ]
+  }
+}
